@@ -1,0 +1,6 @@
+{"text": "this is a tweet! hahaha"},
+{"text": "so is this! #lolzorz"
+ "another_field": "i get carried along"},
+{"text": "RT: @coffee_face u is well tasty face #luvcoffee",
+ "tokens": ["These", "tokens", "be", "different", "yo", "!"]},
+{"tokens": ["this", "just", "tokens"]},
