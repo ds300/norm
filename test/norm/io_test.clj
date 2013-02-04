@@ -62,5 +62,6 @@
 
 (deftest json-test
   (testing "json input works yes?"
+    (prn (get-stream "json" "./test/norm/data/io.json.txt"))
     (is (every? true? (map = expected_json (get-stream "json" "./test/norm/data/io.json.txt"))))))
 
