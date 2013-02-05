@@ -78,17 +78,55 @@
         (recur cs)
       (or (Character/isDigit c) (= \- c))
         (let [[n remaining_chars] (parse-number (cons c cs))]
-          (cons ["num" n] (lazy-seq (tokens remaining_chars))))
+          (cons ["val" n] (lazy-seq (tokens remaining_chars))))
       (symbols c)
         (cons ["sym" c] (lazy-seq (tokens cs)))
       (= c \")
         (let [[s remaining_chars] (parse-string cs (StringBuilder.))]
-          (cons ["str" s] (lazy-seq (tokens remaining_chars))))
+          (cons ["val" s] (lazy-seq (tokens remaining_chars))))
       (and (= c \n) (= (take 3 cs) '(\u \l \l)))
-        (cons ["null" nil] (lazy-seq (tokens (drop 3 cs))))
+        (cons ["val" nil] (lazy-seq (tokens (drop 3 cs))))
       (and (= c \t) (= (take 3 cs) '(\r \u \e)))
-        (cons ["bool" true] (lazy-seq (tokens (drop 3 cs))))
+        (cons ["val" true] (lazy-seq (tokens (drop 3 cs))))
       (and (= c \f) (= (take 4 cs) '(\a \l \s \e)))
-        (cons ["bool" false] (lazy-seq (tokens (drop 4 cs))))
+        (cons ["val" false] (lazy-seq (tokens (drop 4 cs))))
       :else (throw (Exception. (str "Bad character"))))))
 
+(declare parse-list)
+(declare parse-object)
+
+(defn parse-value [[type val] & ts]
+  (case type
+    "val" [val ts]
+    "sym"
+      (case val
+        \{ (parse-object ts)
+        \[ (parse-list ts))))
+
+(defn parse-list [tkns]
+  (loop [[[type val] & ts] tkns acc (transient [])]
+    (case val
+      \] [(persistent! acc) ts]
+      \, (recur ts acc)
+      (let [[item remaining_tkns] (parse-value (cons [type val] ts))]
+        (recur remaining_tkns (conj! acc item))))))
+
+(defn parse-object [tkns]
+  (loop [[[type val] & [[_ colon] & ts] :as others] tkns acc (transient {})]
+    (cond
+      (= val \}) [(persistent! acc) others]
+      (= val \,) (recur others acc)
+      (and (string? val) (= colon \:))
+        (let [[item remaining_tkns] (parse-value ts)]
+          (recur remaining_tkns (conj! acc [val item]))))))
+
+(defn lazy-list [[[type val] & ts]]
+  (when type
+    (case type
+      "sym" (case val
+              \, (recur ts)
+              \[ (let [[l remaining_tkns] (parse-list ts)]
+                   (cons l (lazy-seq (lazy-list remaining_tkns))))
+              \{ (let [[o remaining_tkns] (parse-object ts)]
+                   (cons o (lazy-seq (lazy-list remaining_tkns)))))
+      "val" (cons val (lazy-seq (lazy-list ts))))))
