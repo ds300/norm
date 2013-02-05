@@ -1,7 +1,8 @@
 (ns norm.io
   "This module handles file i/o."
   (:require [clojure.data.json :as json]
-            [clojure.java.io :as jio])
+            [clojure.java.io :as jio]
+            [norm.json])
   (:import [cmu.arktweetnlp Twokenize]))
 
 (def join-tokens #(apply str (interpose " " %)))
@@ -30,23 +31,21 @@
         (lazy-seq (tkn-seq in)))
       (.close in))))
 
+(defn- consume-json [obj]
+  (if (obj "tokens")
+    ; if the tokens have been included, just use them
+    (if-not (obj "text")
+      (conj obj ["text" (join-tokens (obj "tokens"))]) ; add original text if not present
+      obj)
+    (if-not (obj "text")
+      ; if we can't find text or tokens, it is an error. throw exception.
+      (throw (Exception. (str "Bad JSON object. No 'text' or 'tokens' field:\n" obj)))
+      (conj obj ["tokens" (into [] (Twokenize/tokenizeRawTweetText (obj "text")))]))))
+
 (defn- json-seq
   "Returns a lazy seq of tweet objects in the given stream"
   [^java.io.BufferedReader in]
-  (if-let [obj (json/read in)]
-    (cons
-      (if (obj "tokens")
-        ; if the tokens have been included, just use them
-        (if-not (obj "text")
-          (conj obj ["text" (join-tokens (obj "tokens"))]) ; add original text if not present
-          obj)
-        (if-not (obj "text")
-          (do ; if we can't find text or tokens, it is an error. throw exception.
-            (.close in)
-            (throw (Exception. (str "Bad JSON object. No 'text' or 'tokens' field:\n" obj))))
-          (conj obj ["tokens" (into [] (Twokenize/tokenizeRawTweetText (obj "text")))])))
-      (lazy-seq (json-seq in)))
-      (.close in)))
+  (map consume-json (norm.json/objects-in in)))
 
 (defn get-stream [format filename]
   (let [rdr (jio/reader filename)]

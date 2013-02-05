@@ -12,40 +12,18 @@
 
 
 
-(def symbols #{\[ \] \: \{ \} \,})
+(def SYMBOLS #{\[ \] \: \{ \} \,})
 
+(def NUM_CHARS #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9 \. \e \E})
 
-
-(defn- parse-number [[c & cs]]
-  "man, this is ugly clojue"
-  (let [buff (StringBuilder.)
-        remaining (atom cs)]
-    (.append buff c)
-    (loop [[d & ds] @remaining]
-      (if (Character/isDigit d)
-        (do (.append buff d) (recur ds))
-        (reset! remaining (cons d ds))))
-    (if (#{\. \E \e} (first @remaining))
-      (do
-        (when (= \. (first @remaining))
-          (.append buff \.)
-          (loop [[d & ds] (rest @remaining)]
-            (if (Character/isDigit d)
-              (do (.append buff d) (recur ds))
-              (reset! remaining (cons d ds)))))
-        (when (#{\E \e} (first @remaining))
-          (.append buff \e)
-          (reset! remaining (rest @remaining))
-          (when (#{\+ \-} (first @remaining))
-            (.append buff (first @remaining))
-            (reset! remaining (rest @remaining)))
-          (loop [[d & ds] @remaining]
-            (println (str buff))
-            (if (Character/isDigit d)
-              (do (.append buff d) (recur ds))
-              (reset! remaining (cons d ds)))))
-        [(Double/valueOf (str buff)) @remaining])
-      [(Long/valueOf (str buff)) @remaining])))
+(defn- parse-number [cs]
+  (let [[numchars remaining_chars] (split-with NUM_CHARS cs)
+         dec? (some #{\e \E \.} numchars)
+         numstr (apply str numchars)
+         num (if dec?
+               (Double/valueOf numstr)
+               (Long/valueOf numstr))]
+    [num remaining_chars]))
 
 (defn- parse-string [[c d & cs] ^StringBuilder acc]
   (cond
@@ -79,7 +57,7 @@
       (or (Character/isDigit c) (= \- c))
         (let [[n remaining_chars] (parse-number (cons c cs))]
           (cons ["val" n] (lazy-seq (tokens remaining_chars))))
-      (symbols c)
+      (SYMBOLS c)
         (cons ["sym" c] (lazy-seq (tokens cs)))
       (= c \")
         (let [[s remaining_chars] (parse-string cs (StringBuilder.))]
@@ -120,13 +98,11 @@
         (let [[item remaining_tkns] (parse-value ts)]
           (recur remaining_tkns (conj! acc [val item]))))))
 
-(defn lazy-list [[[type val] & ts]]
-  (when type
-    (case type
-      "sym" (case val
-              \, (recur ts)
-              \[ (let [[l remaining_tkns] (parse-list ts)]
-                   (cons l (lazy-seq (lazy-list remaining_tkns))))
-              \{ (let [[o remaining_tkns] (parse-object ts)]
-                   (cons o (lazy-seq (lazy-list remaining_tkns)))))
-      "val" (cons val (lazy-seq (lazy-list ts))))))
+(defn lazy-list [[[type val] & ts :as tkns]]
+  (if (= type "sym")
+    (case val \, (recur ts) \] nil)
+    (let [[item remaining_tkns] (parse-value tkns)]
+      (cons item (lazy-seq (lazy-list remaining_tkns))))))
+
+(defn objects-in [^java.io.Reader rdr]
+  (lazy-list (drop-while #(not= % ["sym" \{]) (tokens (char-seq rdr)))))
