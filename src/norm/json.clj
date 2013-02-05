@@ -73,13 +73,15 @@
 (declare parse-list)
 (declare parse-object)
 
-(defn parse-value [[type val] & ts]
+(defn parse-value [[[type val] & ts]]
   (case type
     "val" [val ts]
     "sym"
       (case val
         \{ (parse-object ts)
-        \[ (parse-list ts))))
+        \[ (parse-list ts)
+        (throw (Exception. (str "bad value: " [type val]))))
+    (throw (Exception. (str "badness: " [type val])))))
 
 (defn parse-list [tkns]
   (loop [[[type val] & ts] tkns acc (transient [])]
@@ -90,7 +92,7 @@
         (recur remaining_tkns (conj! acc item))))))
 
 (defn parse-object [tkns]
-  (loop [[[type val] & [[_ colon] & ts] :as others] tkns acc (transient {})]
+  (loop [[[type val] & [[_ colon] & ts :as others]] tkns acc (transient {})]
     (cond
       (= val \}) [(persistent! acc) others]
       (= val \,) (recur others acc)
@@ -99,10 +101,11 @@
           (recur remaining_tkns (conj! acc [val item]))))))
 
 (defn lazy-list [[[type val] & ts :as tkns]]
-  (if (= type "sym")
-    (case val \, (recur ts) \] nil)
-    (let [[item remaining_tkns] (parse-value tkns)]
-      (cons item (lazy-seq (lazy-list remaining_tkns))))))
+  (when type
+    (case val \, (recur ts) \] nil
+      (let [[item remaining_tkns] (parse-value tkns)]
+        (cons item (lazy-seq (lazy-list remaining_tkns)))))))
 
 (defn objects-in [^java.io.Reader rdr]
   (lazy-list (drop-while #(not= % ["sym" \{]) (tokens (char-seq rdr)))))
+
