@@ -18,6 +18,8 @@ import clojure.lang.AFn;
 import clojure.lang.IFn;
 
 public class Trie extends AFn implements IPersistentMap{
+  private static final List<String> empty_list = new ArrayList<String>(0);
+
   public  final long     _count;
   public  final long     _freq;
   public  final long     _tfreq;
@@ -387,8 +389,56 @@ public class Trie extends AFn implements IPersistentMap{
     return results;
   }
 
+
+
+  private List<String> findContaining (String s, boolean contiguous, boolean begun) {
+    if (s.length() > _depth) {
+      return empty_list;
+    } else if (s.length() == 0) {
+      return words();
+    } else if (contiguous && begun){
+      char c = s.charAt(0);
+      Trie t = getChild(c);
+      if (t == null) {
+        return empty_list;
+      } else {
+        ArrayList<String> results = new ArrayList<String>();
+        for (String w : t.findContaining(s.substring(1), true, true)){
+          results.add(c + w);
+        }
+        return results;
+      }
+    } else {
+      ArrayList<String> results = new ArrayList<String>();
+      char c = s.charAt(0);
+      // iterate over children, try to find c
+      for (int i=0; i<_nodes.length; i++) {
+        if (_keys[i] == c) {
+          for (String w : _nodes[i].findContaining(s.substring(1), contiguous, true)){
+            results.add(c + w);
+          }
+        }
+        for (String w : _nodes[i].findContaining(s, contiguous, begun)){
+          results.add(_keys[i] + w);
+        }
+      }
+      return results;
+    }
+  }
+
   public List<String> findContaining (String s, boolean contiguous) {
-    return null;
+    return findContaining(s, contiguous, false);
+  }
+
+  public List<String> words () {
+    ArrayList<String> results = new ArrayList<String>();
+    if (_terminal) {
+      results.add("");
+    }
+    for (int i=0; i < _nodes.length; i++) {
+      for (String s : _nodes[i].words()) results.add(_keys[i] + s);
+    }
+    return results;
   }
 
 

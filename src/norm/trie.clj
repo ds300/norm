@@ -38,5 +38,11 @@
   [t s d]
   (into [] (.findNearest t s 0 d)))
 
-(defn with-prefix [t prefix]
+(defn find-with-prefix [t prefix]
   (map #(str prefix %) (keys (.endNode t prefix))))
+
+(defn find-with-substr [t substr]
+  (.findContaining t substr true))
+
+(defn find-with-chars [t substr]
+  (.findContaining t substr false))
