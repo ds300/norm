@@ -32,4 +32,8 @@
 
 (defn find-nearest
   ([t s] (find-nearest t s 1))
-  ([t s n] (into [] (.findNearest t s n))))
+  ([t s n] (into [] (.findNearest t s n 0))))
+
+(defn find-within
+  [t s d]
+  (.findNearest t s 0 d))

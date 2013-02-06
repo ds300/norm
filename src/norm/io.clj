@@ -16,6 +16,24 @@
     (cons line (lazy-seq (line-seq-with-close rdr)))
     (.close rdr)))
 
+(defn lines-in [filename]
+  (line-seq-with-close (jio/reader filename)))
+
+(defn by-lines
+  "Returns a lazy seq of func applied to the lines in the specified file,
+  ignoring blank lines"
+  [filename func]
+  (map func (filter not-empty (lines-in filename))))
+
+
+(defn parse-tsv [filename & funcs]
+  (by-lines filename
+    (fn [line]
+      (mapv
+        (fn [f v] (f v))
+        (concat funcs (repeat identity))
+        (clojure.string/split line #"\t")))))
+
 (defn- consume-raw [line]
   {"text" line "tokens" (into [] (Twokenize/tokenizeRawTweetText line))})
 

@@ -285,7 +285,7 @@ public class Trie extends AFn implements IPersistentMap{
    * Finds the n nearest strings to s in this trie.
    */
 
-  public List<String> findNearest (final String s, final int n) {
+  public List<String> findNearest (final String s, final int n, final int d) {
 
     // init levenshtein stuff
     final int m = s.length();
@@ -300,7 +300,7 @@ public class Trie extends AFn implements IPersistentMap{
     FNE current = null; 
 
     // iterate over queue, stopping when we've got enough
-    while (results.size() < n && !q.isEmpty()) {
+    while ((n <= 0 || results.size() < n) && !q.isEmpty() && (d <= 0 || q.peek().dist <= d)) {
       current = q.poll();
       if (current.node == null) {
         // if there is no node, it means we made the entry as a kind of
@@ -330,7 +330,7 @@ public class Trie extends AFn implements IPersistentMap{
           char c = current.node._keys[i];
           row = new int[m + 1];
           row[0] = current.row[0] + 1;
-          for (int j=1; i < m + 1; j++) {
+          for (int j=1; j < m + 1; j++) {
             row[j] =
               Math.min(
                 Math.min(
