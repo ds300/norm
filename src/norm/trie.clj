@@ -18,7 +18,7 @@
 (defn merge
   "Take some tries and merge them, frequencies are combined.
    Where identical entries both have data objects, the rightmost is used."
-  [&ts]
+  [& ts]
   (when (some identity ts)
     (reduce #(.merge %1 %2 nil) ts)))
 
@@ -26,7 +26,7 @@
   "Take some tries and merge them, frequencies are combined.
    Where identical entries both have data objects, the result of f
    applied to both is used"
-  [f &ts]
+  [f & ts]
   (when (some identity ts)
     (reduce #(.merge %1 %2 f) ts)))
 
@@ -36,4 +36,7 @@
 
 (defn find-within
   [t s d]
-  (.findNearest t s 0 d))
+  (into [] (.findNearest t s 0 d)))
+
+(defn with-prefix [t prefix]
+  (map #(str prefix %) (keys (.endNode t prefix))))
