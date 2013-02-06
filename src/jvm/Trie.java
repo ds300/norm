@@ -15,6 +15,7 @@ import clojure.lang.PersistentVector;
 import clojure.lang.ISeq;
 import clojure.lang.Seqable;
 import clojure.lang.AFn;
+import clojure.lang.IFn;
 
 public class Trie extends AFn implements IPersistentMap{
   private final long     _count;
@@ -76,25 +77,6 @@ public class Trie extends AFn implements IPersistentMap{
   }
 
 
-  public int getSortedChildIndex (char c) {
-    // binary search
-    int lo = 0;
-    int hi = _keys.length - 1;
-    while (lo <= hi) {
-      int i = lo + (hi - lo) / 2;
-      if (c < _keys[i]) {
-        hi = i - 1;
-      } else if (c > _keys[i]) {
-        lo = i + 1;
-      } else {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-
-
 
   public Trie getChild (char c) {
     int i = Arrays.binarySearch(_keys, c);
@@ -134,12 +116,16 @@ public class Trie extends AFn implements IPersistentMap{
     return count + (a.length - i) + (b.length - j);
   }
 
-  public Trie merge (Trie t) {
+  public Trie merge (Trie t, IFn withfn) {
     final long count = _count + t._count;
     final long freq = _freq + t._freq;
     final long tfreq = _tfreq + t._tfreq;
     final boolean terminal = _terminal || t._terminal;
-    final Object data = t._data != null ? t._data : _data;
+    if (withfn == null) {
+      final Object data = t._data != null ? t._data : _data;
+    } else {
+      final Object data = withfn.invoke(_data, t._data);
+    }
 
     if (_keys.length == 0) {
       return new Trie(count, freq, tfreq, terminal, t._keys, t._nodes, data);
@@ -170,7 +156,7 @@ public class Trie extends AFn implements IPersistentMap{
           j++;
         } else {
           rks[k] = _keys[i];
-          rns[k] = _nodes[i].merge(t._nodes[j]);
+          rns[k] = _nodes[i].merge(t._nodes[j], withfn);
           i++;
           j++;
         }
@@ -214,6 +200,8 @@ public class Trie extends AFn implements IPersistentMap{
     return node._terminal;
   }
 
+  // this should only be called after it has been made certain that s is a valid key
+  // in this trie
   private Trie remove (String s, long freq) {
     if (s.length() == 0) {
       // this is the terminal node of the string we're removing
@@ -225,7 +213,7 @@ public class Trie extends AFn implements IPersistentMap{
         return new Trie(_count - 1, _freq - freq, 0, false, _keys, _nodes, null);
       }
     } else {
-      int x = getSortedChildIndex(s.charAt(0));
+      int x = Arrays.binarySearch(_keys, s.charAt(0));
       Trie replacement = _nodes[x].remove(s.substring(1), freq);
       if (replacement._count > 0) {
         Trie[] rns = new Trie[_keys.length];
@@ -453,7 +441,7 @@ public class Trie extends AFn implements IPersistentMap{
 
   @Override
   public IPersistentMap assoc(Object key, Object val) {
-    return merge(new Trie((String) key, 0, val));
+    return merge(new Trie((String) key, 0, val), null);
   }
 
   @Override
@@ -475,9 +463,9 @@ public class Trie extends AFn implements IPersistentMap{
     String word = (String) s.first();
     s = s.next();
     if (s.first() instanceof Number) {
-      return merge(new Trie(word, (Long)s.first(), s.next() == null ? null : s.next().first()));
+      return merge(new Trie(word, (Long)s.first(), s.next() == null ? null : s.next().first()), null);
     } else {
-      return merge(new Trie(word, 0, s.first()));
+      return merge(new Trie(word, 0, s.first()), null);
     }
   }
 
