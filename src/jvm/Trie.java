@@ -391,22 +391,22 @@ public class Trie extends AFn implements IPersistentMap{
 
 
 
-  private List<String> findContaining (String s, boolean contiguous, boolean begun) {
+  private List<String> findContaining (String s, boolean contiguous, boolean begun, boolean suffix) {
     if (s.length() > _depth) {
       return empty_list;
     } else if (s.length() == 0) {
-      return words();
+      if (suffix) {
+        return _terminal ? Arrays.asList(new String[]{""}) : empty_list;
+      } else {
+        return words();
+      }
     } else if (contiguous && begun){
       char c = s.charAt(0);
       Trie t = getChild(c);
       if (t == null) {
         return empty_list;
       } else {
-        ArrayList<String> results = new ArrayList<String>();
-        for (String w : t.findContaining(s.substring(1), true, true)){
-          results.add(c + w);
-        }
-        return results;
+        return givePrefix(t.findContaining(s.substring(1), true, true, suffix), new ArrayList<String>(), c+"");
       }
     } else {
       ArrayList<String> results = new ArrayList<String>();
@@ -414,20 +414,36 @@ public class Trie extends AFn implements IPersistentMap{
       // iterate over children, try to find c
       for (int i=0; i<_nodes.length; i++) {
         if (_keys[i] == c) {
-          for (String w : _nodes[i].findContaining(s.substring(1), contiguous, true)){
-            results.add(c + w);
-          }
+          givePrefix(_nodes[i].findContaining(s.substring(1), contiguous, true, suffix), results, c+"");
         }
-        for (String w : _nodes[i].findContaining(s, contiguous, begun)){
-          results.add(_keys[i] + w);
-        }
+        givePrefix(_nodes[i].findContaining(s, contiguous, begun, suffix), results, _keys[i]+"");
       }
       return results;
     }
   }
 
   public List<String> findContaining (String s, boolean contiguous) {
-    return findContaining(s, contiguous, false);
+    return findContaining(s, contiguous, false, false);
+  }
+
+  public List<String> findWithSuffix (String s) {
+    return findContaining(s, true, false, true);
+  }
+
+  public List<String> findWithPrefix (String s) {
+    Trie t = endNode(s);
+    if (t == null) {
+      return empty_list;
+    } else {
+      return givePrefix(t.words(), new ArrayList<String>(), s);
+    }
+  }
+
+  private static List<String> givePrefix(List<String> source, List<String> dest, String prefix) {
+    for (String s : source) {
+      dest.add(prefix + s);
+    }
+    return dest;
   }
 
   public List<String> words () {
