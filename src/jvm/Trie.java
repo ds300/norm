@@ -18,13 +18,14 @@ import clojure.lang.AFn;
 import clojure.lang.IFn;
 
 public class Trie extends AFn implements IPersistentMap{
-  private final long     _count;
-  private final long     _freq;
-  private final long     _tfreq;
-  private final boolean  _terminal;
+  public  final long     _count;
+  public  final long     _freq;
+  public  final long     _tfreq;
+  public  final boolean  _terminal;
   private final char[]   _keys;       // These ones in ascending sorted order for
   private final Trie[]   _nodes;      // traversal and merging etc.
-  private final Object   _data;
+  public  final Object   _data;
+  public  final int      _depth;
 
   public Trie () {
     _count    = 0;
@@ -34,6 +35,7 @@ public class Trie extends AFn implements IPersistentMap{
     _keys     = new char[0];
     _nodes    = new Trie[0];
     _data     = null;
+    _depth    = 0;
   }
 
   public Trie (Trie t) {
@@ -44,9 +46,10 @@ public class Trie extends AFn implements IPersistentMap{
     _keys     = t._keys;
     _nodes    = t._nodes;
     _data     = t._data;
+    _depth    = t._depth;
   }
 
-  public Trie (long count, long freq, long tfreq, boolean terminal, char[] keys, Trie[] nodes, Object data) {
+  public Trie (long count, long freq, long tfreq, boolean terminal, char[] keys, Trie[] nodes, Object data, int depth) {
     _count = count;
     _freq = freq;
     _tfreq = tfreq;
@@ -54,6 +57,7 @@ public class Trie extends AFn implements IPersistentMap{
     _keys = keys;
     _nodes = nodes;
     _data = data;
+    _depth = depth;
   }
 
 
@@ -61,7 +65,8 @@ public class Trie extends AFn implements IPersistentMap{
   public Trie (String word, long freq, Object data) {
     _count = 1;
     _freq = freq;
-    if (word.length() == 0) {
+    _depth = word.length();
+    if (_depth == 0) {
       _terminal = true;
       _tfreq = freq;
       _data = data;
@@ -121,6 +126,7 @@ public class Trie extends AFn implements IPersistentMap{
     final long freq = _freq + t._freq;
     final long tfreq = _tfreq + t._tfreq;
     final boolean terminal = _terminal || t._terminal;
+    final int depth = Math.max(_depth, t._depth);
     final Object data;
     if (withfn == null) {
       data = t._data != null ? t._data : _data;
@@ -129,9 +135,9 @@ public class Trie extends AFn implements IPersistentMap{
     }
 
     if (_keys.length == 0) {
-      return new Trie(count, freq, tfreq, terminal, t._keys, t._nodes, data);
+      return new Trie(count, freq, tfreq, terminal, t._keys, t._nodes, data, depth);
     } else if (t._keys.length == 0) {
-      return new Trie(count, freq, tfreq, terminal, _keys, _nodes, data);
+      return new Trie(count, freq, tfreq, terminal, _keys, _nodes, data, depth);
     } else {
       // clone and sort original data structures
 
@@ -175,9 +181,11 @@ public class Trie extends AFn implements IPersistentMap{
         j++;
         k++;
       }
-      return new Trie(count, freq, tfreq, terminal, rks, rns, data);
+      return new Trie(count, freq, tfreq, terminal, rks, rns, data, depth);
     }
   }
+
+  //TODO: maybe optimise these next two methods to use _depth?
 
   public Trie endNode (String s) {
     Trie node = this;
@@ -211,26 +219,50 @@ public class Trie extends AFn implements IPersistentMap{
         return new Trie();
       } else {
         // there's stuff coming off from this node, so just make it not terminal
-        return new Trie(_count - 1, _freq - freq, 0, false, _keys, _nodes, null);
+        return new Trie(_count - 1, _freq - freq, 0, false, _keys, _nodes, null, _depth);
       }
     } else {
+      // find the index of the node we might be removing
       int x = Arrays.binarySearch(_keys, s.charAt(0));
       Trie replacement = _nodes[x].remove(s.substring(1), freq);
       if (replacement._count > 0) {
+        // if we need to replace the node as opposed to just getting rid of it
+        // make a copy of our nodes list with replacement added
         Trie[] rns = new Trie[_keys.length];
         System.arraycopy(_nodes, 0, rns, 0, _keys.length);
         rns[x] = replacement;
-        return new Trie(_count - 1, _freq - freq, _tfreq, _terminal, _keys, rns, _data);
+        // iterate over new children to find max depth
+        int depth = -1;
+        for (Trie t : rns) depth = Math.max(depth, t._depth);
+        return new Trie(_count - 1, _freq - freq, _tfreq, _terminal, _keys, rns, _data, depth + 1);
       } else {
-        // do interesting shit
+        // copy arrays, getting rid of the relevant node
         char[] rks = new char[_keys.length - 1];
         Trie[] rns = new Trie[_keys.length - 1];
         System.arraycopy(_keys, 0, rks, 0, x);
         System.arraycopy(_keys, x+1, rks, x, _keys.length-1-x);
         System.arraycopy(_nodes, 0, rns, 0, x);
         System.arraycopy(_nodes, x+1, rns, x, _keys.length-1-x);
-        return new Trie(_count - 1, _freq - freq, _tfreq, _terminal, rks, rns, _data);
+        // iterate over new children to find max depth
+        int depth = -1;
+        for (Trie t : rns) depth = Math.max(depth, t._depth);
+        return new Trie(_count - 1, _freq - freq, _tfreq, _terminal, rks, rns, _data, depth + 1);
       }
+    }
+  }
+
+  public boolean verifyDepths() {
+    if (_nodes.length == 0) {
+      return _depth == 0;
+    } else {
+      int max = 0;
+      for (int i = 0; i < _nodes.length; i++) {
+        if (!_nodes[i].verifyDepths()) {
+          return false;
+        }
+        max = Math.max(_nodes[i]._depth, max);
+      }
+      return max + 1 == _depth;
     }
   }
 
@@ -355,6 +387,10 @@ public class Trie extends AFn implements IPersistentMap{
     return results;
   }
 
+  public List<String> findContaining (String s, boolean contiguous) {
+    return null;
+  }
+
 
   // CLOJURE STUFF
 
@@ -429,7 +465,7 @@ public class Trie extends AFn implements IPersistentMap{
       for (int j = 0; j < depth; j++) {
         System.out.print("|   ");
       }
-      System.out.println(t._keys[i]);
+      System.out.println(t._keys[i] + " " + _depth);
       printTrie(t._nodes[i], depth + 1);
     }
   }
@@ -480,7 +516,8 @@ public class Trie extends AFn implements IPersistentMap{
     try {
       Trie t = (Trie) o;
       if (t == this) return true;
-      if (t._count != _count || _freq != t._freq || _tfreq != t._tfreq || t._terminal != _terminal || t._keys.length != _keys.length) return false;
+      if (t._count != _count
+          || _freq != t._freq || _tfreq != t._tfreq || t._terminal != _terminal || t._keys.length != _keys.length || t._depth != _depth) return false;
       for (int i = 0; i < _keys.length; i++) {
         if (t._keys[i] != _keys[i]) return false;
         if (!t._nodes[i].equiv(_nodes[i])) return false;
