@@ -121,10 +121,11 @@ public class Trie extends AFn implements IPersistentMap{
     final long freq = _freq + t._freq;
     final long tfreq = _tfreq + t._tfreq;
     final boolean terminal = _terminal || t._terminal;
+    final Object data;
     if (withfn == null) {
-      final Object data = t._data != null ? t._data : _data;
+      data = t._data != null ? t._data : _data;
     } else {
-      final Object data = withfn.invoke(_data, t._data);
+      data = withfn.invoke(_data, t._data);
     }
 
     if (_keys.length == 0) {

@@ -7,29 +7,29 @@
 
 (def join-tokens #(apply str (interpose " " %)))
 
-(defn- raw-seq
-  "Returns a lazy seq of tweet objects in the given stream of
-  newline-separated tweets"
-  [^java.io.BufferedReader in]
-   (if-let [text (.readLine in)]
-     (cons
-       {"text" text  "tokens" (into [] (Twokenize/tokenizeRawTweetText text))}
-       (lazy-seq (raw-seq in)))
-     (.close in)))
+(defn line-seq-with-close
+  "Returns the lines of text from rdr as a lazy sequence of strings.
+  Closes rdr when done.
+  rdr must implement java.io.BufferedReader."
+  [^java.io.BufferedReader rdr]
+  (if-let [line (.readLine rdr)]
+    (cons line (lazy-seq (line-seq-with-close rdr)))
+    (.close rdr)))
 
-(defn- tkn-seq
-  "Returns a lazy seq of tweet objects in the given token stream"
-  [^java.io.BufferedReader in]
-  (let [tokens (loop [acc (transient [])]
-                 (let [line (.readLine in)]
-                   (if (or (not line) (= "" line))
-                     (persistent! acc)
-                     (recur (conj! acc line)))))]
-    (if (not= tokens [])
-      (cons
-        {"text" (join-tokens tokens) "tokens" tokens}
-        (lazy-seq (tkn-seq in)))
-      (.close in))))
+(defn- consume-raw [line]
+  {"text" line "tokens" (into [] (Twokenize/tokenizeRawTweetText line))})
+
+(defn- raw-seq [^java.io.Reader in]
+  (map consume-raw (line-seq-with-close in)))
+
+(defn- group-tkns [lines]
+  (filter #(not= '("") %) (partition-by empty? lines)))
+
+(defn- consume-tkn [tokens]
+  {"text" (join-tokens tokens) "tokens" tokens})
+
+(defn- tkn-seq [in]
+  (map consume-tkn (group-tkns (line-seq-with-close in))))
 
 (defn- consume-json [obj]
   (if (obj "tokens")
