@@ -20,14 +20,14 @@
   [^norm.trie.Trie t s]
   (.freq t s))
 
-(defn merge
+(defn combine
   "Take some tries and merge them, frequencies are combined.
    Where identical entries both have data objects, the rightmost is used."
   [& ts]
   (when (some identity ts)
     (reduce #(.merge %1 %2 nil) ts)))
 
-(defn merge-with
+(defn combine-with
   "Take some tries and merge them, frequencies are combined.
    Where identical entries both have data objects, the result of f
    applied to both is used"
