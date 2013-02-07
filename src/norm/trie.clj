@@ -5,6 +5,11 @@
   ([] (norm.trie.Trie.))
   ([args] (into (trie) args)))
 
+(defn contains
+  "returns true if t contains s, false otherwise"
+  [t s]
+  (.contains t s))
+
 (defn freq
   "The frequency of the given string in the given trie"
   [^norm.trie.Trie t s]
