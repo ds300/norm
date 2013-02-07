@@ -3,9 +3,21 @@
   (:require [clojure.data.json :as json]
             [clojure.java.io :as jio]
             [norm.json])
-  (:import [cmu.arktweetnlp Twokenize]))
+  (:import [cmu.arktweetnlp Twokenize])
+  (:use [clojure.string :only (join)]))
 
 (def join-tokens #(apply str (interpose " " %)))
+
+(defn prog-reader [filename]
+  (ProgressTrackingBufferedFileReader/make filename))
+
+(defmacro doing-done [msg & body]
+  `(do 
+    (let [result# (do (print ~msg "... ")
+    (.flush *out*) ~@body)]
+      (println "done!")
+      result#)))
+
 
 (defn line-seq-with-close
   "Returns the lines of text from rdr as a lazy sequence of strings.
@@ -65,7 +77,17 @@
   [^java.io.BufferedReader in]
   (map consume-json (norm.json/objects-in in)))
 
-(defn get-stream [format filename]
-  (let [rdr (jio/reader filename)]
-    (({"raw" raw-seq, "tkn" tkn-seq, "json" json-seq} format) rdr)))
+(defn get-stream [format in]
+  (({"raw" raw-seq, "tkn" tkn-seq, "json" json-seq} format) in))
+
+(def encoders
+  {"raw" (fn [tweet]
+           (str (join " " (tweet "norm_tokens")) "\n"))
+   "tkn" (fn [tweet]
+           (str (join "\n" (tweet "norm_tokens")) "\n"))
+   "json" (fn [tweet]
+            (str (json/write-str tweet) ",\n"))
+  }
+)
+
 
