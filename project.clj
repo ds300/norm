@@ -8,5 +8,5 @@
                  [commons-lang/commons-lang "2.6"]
                  [org.clojure/tools.cli "0.2.2"]]
   :repositories {"byblo" "http://kungf.eu:8081/nexus/content/groups/public/"}
-  :java-source-paths ["src/jvm/"]
+  :java-source-paths ["src/norm/jvm/"]
   :main norm.core)

@@ -2,7 +2,7 @@
 
 (defn trie
   "construct yoself a trie"
-  ([] (norm.trie.Trie.))
+  ([] (norm.jvm.Trie.))
   ([args] (into (trie) args)))
 
 (defn contains
@@ -12,12 +12,12 @@
 
 (defn freq
   "The frequency of the given string in the given trie"
-  [^norm.trie.Trie t s]
+  [^norm.jvm.Trie t s]
   (.tfreq t s))
 
 (defn prefix-freq
   "The frequency of the given prefix in the given trie"
-  [^norm.trie.Trie t s]
+  [^norm.jvm.Trie t s]
   (.freq t s))
 
 (defn combine

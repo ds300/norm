@@ -1,4 +1,4 @@
-package norm.trie;
+package norm.jvm;
 
 import java.util.Arrays;
 import java.util.Iterator;
