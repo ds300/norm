@@ -4,7 +4,8 @@
             [norm.trie :as trie]
             [norm.data :as data]
             [norm.io :as io]
-            [norm.train.dm-dict :as dm-dict])
+            [norm.train.dm-dict :as dm-dict]
+            [norm.train.twt-c :as twt-c])
   ; (:gen-class)
   )
 
@@ -73,6 +74,8 @@
         (case (keyword id)
           :dm-dict (data/load-and-bind [:dict]
                      (dm-dict/train))
+          :twt-c (data/load-and-bind [:dict]
+                     (twt-c/train))
           (fail (str "invalid training file: " id))))))
 })
 

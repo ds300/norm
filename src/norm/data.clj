@@ -34,6 +34,7 @@
       (case id
         :nmd (into {} (io/parse-tsv path))
         :dict (trie/trie (map #(conj % 1) (io/parse-tsv path)))
+        :dm-dict (trie/trie (map #(vector (first %) 1 (rest %)) (io/parse-tsv path)))
         :nmd-g (into {} (io/parse-tsv path))))))
 
 (defmacro load-and-bind [ids & body]

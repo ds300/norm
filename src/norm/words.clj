@@ -8,3 +8,6 @@
         (clojure.string/replace string #"(.)\1\1+" "$1$1")))))
 
 (defn confusion-set [word lexi-d phon-d])
+
+(defn tokenise [text]
+  (into [] (cmu.arktweetnlp.Twokenize/tokenizeRawTweetText text)))
