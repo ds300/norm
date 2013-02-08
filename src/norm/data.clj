@@ -21,21 +21,20 @@
 (def PATHS (atom {}))
 
 (defn set-path! [id path]
-  (println "setting " id " to " path)
   (swap! PATHS conj [id path]))
 
 (defn set-paths! [dir]
-  (doseq [id (map name FILES)]
-    (set-path! id (str dir "/" id))))
+  (doseq [id FILES]
+    (set-path! id (str dir "/" (name id)))))
 
 
 (defn load- [id]
   (let [path (@PATHS id)]
     (io/doing-done (str "Loading " id " from " path)
       (case id
-        "nmd" (into {} (io/parse-tsv path))
-        "dict" (trie/trie (map #(conj % 1) (io/parse-tsv path)))
-        "nmd-g" (into {} (io/parse-tsv path))))))
+        :nmd (into {} (io/parse-tsv path))
+        :dict (trie/trie (map #(conj % 1) (io/parse-tsv path)))
+        :nmd-g (into {} (io/parse-tsv path))))))
 
 (defmacro load-and-bind [ids & body]
   `(clojure.core/binding ~(vec (mapcat (fn [id] [(symbol (str "norm.data/" (.toUpperCase (name id)))) `(norm.data/load- ~id)]) ids) )

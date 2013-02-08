@@ -68,11 +68,10 @@
   ;     (.close out)))
   "train"
   (fn [id outfile & args]
-    (println (@data/PATHS id) "oops")
-    (with-open [out (jio/writer (if (= "overwrite" outfile) (@data/PATHS id) outfile))]
+    (with-open [out (jio/writer (if (= "overwrite" outfile) (@data/PATHS (keyword id)) outfile))]
       (binding [io/OUT out]
         (case (keyword id)
-          :dm-dict (data/load-and-bind ["dict"]
+          :dm-dict (data/load-and-bind [:dict]
                      (dm-dict/train))
           (fail (str "invalid training file: " id))))))
 })
