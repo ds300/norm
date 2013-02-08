@@ -1,0 +1,1 @@
+(ns norm.train.nmd)

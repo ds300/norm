@@ -6,6 +6,9 @@
   (:import [cmu.arktweetnlp Twokenize])
   (:use [clojure.string :only (join)]))
 
+(def ^:dynamic IN)
+(def ^:dynamic OUT)
+
 (def join-tokens #(apply str (interpose " " %)))
 
 (defn prog-reader [filename]
@@ -45,6 +48,11 @@
         (fn [f v] (f v))
         (concat funcs (repeat identity))
         (clojure.string/split line #"\t")))))
+
+(defn spit-tsv [out vecs]
+  (doseq [vec vecs]
+    (.write out (apply str (interpose "\t" vec)))
+    (.write out "\n")))
 
 (defn- consume-raw [line]
   {"text" line "tokens" (into [] (Twokenize/tokenizeRawTweetText line))})

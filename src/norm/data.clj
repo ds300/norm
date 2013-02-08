@@ -1,34 +1,42 @@
 (ns norm.data
-(:require [norm.io :as io]))
+(:require [norm.io :as io]
+          [norm.trie :as trie]))
+
+(def FILES [
+  :nmd
+  :dict
+  :dm-dict
+  :twt
+  :twt-c
+  :tlm
+  :lksm
+  :nyt
+  :nmd-g
+  :dpb
+])
+
+(doseq [id (map name FILES)]
+  (.setDynamic (intern 'norm.data (symbol (.toUpperCase id)))))
 
 (def PATHS (atom {}))
 
-(defn set-paths! [ids dir]
-  (doseq [id ids]
-    (set-path! id (str dir "./" id))))
-
 (defn set-path! [id path]
-  (swap! paths conj [id path]))
+  (println "setting " id " to " path)
+  (swap! PATHS conj [id path]))
 
-(def ^:dynamic NMD)
-(def ^:dynamic DICT)
-(def ^:dynamic DM-DICT)
-(def ^:dynamic TWT)
-(def ^:dynamic TWT-C)
-(def ^:dynamic TLM)
-(def ^:dynamic LKSM)
-(def ^:dynamic NYT)
-(def ^:dynamic NMD-G)
-(def ^:dynamic DPB)
+(defn set-paths! [dir]
+  (doseq [id (map name FILES)]
+    (set-path! id (str dir "/" id))))
 
-(defn load [id]
-  (let [path (PATHS id)])
-  (io/doing-done (str "Loading " id " from " path)
-    (case id
-      "nmd" (into {} (io/parse-tsv path))
-      "dict" (trie/trie (map #(conj % 1) (io/parse-tsv path)))
-      "nmd-g" (into {} (io/parse-tsv path)))))
+
+(defn load- [id]
+  (let [path (@PATHS id)]
+    (io/doing-done (str "Loading " id " from " path)
+      (case id
+        "nmd" (into {} (io/parse-tsv path))
+        "dict" (trie/trie (map #(conj % 1) (io/parse-tsv path)))
+        "nmd-g" (into {} (io/parse-tsv path))))))
 
 (defmacro load-and-bind [ids & body]
-  `(clojure.core/binding ~(vec (mapcat (fn [id] [(symbol (.toUpperCase id)) `(norm.core/load ~id)]) ids) )
+  `(clojure.core/binding ~(vec (mapcat (fn [id] [(symbol (str "norm.data/" (.toUpperCase (name id)))) `(norm.data/load- ~id)]) ids) )
      (do ~@body)))
