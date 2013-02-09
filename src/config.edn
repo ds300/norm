@@ -13,5 +13,8 @@
 }
 
 :train {
-  :nmd {}
+  :nmd {
+    :post-rank-cutoff 30 ; percent
+    :freq-cutoff 4
+  }
 }

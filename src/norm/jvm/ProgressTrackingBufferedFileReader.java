@@ -29,7 +29,7 @@ public class ProgressTrackingBufferedFileReader extends BufferedReader {
 
   public float progress() {
     try {
-      return (100f / size) * channel.position();
+      return 0.01f * (int)(100 * (100f / size) * channel.position());
     } catch (IOException e) {return 100f;}
     
   }

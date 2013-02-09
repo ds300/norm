@@ -9,8 +9,10 @@
 
 (defn confusion-set [word lexi-d phon-d])
 
-(defn tokenise [text]
+(defn tokenise [^String text]
   (into [] (cmu.arktweetnlp.Twokenize/tokenizeRawTweetText text)))
 
-(defn remove-punct-repetition [line]
+
+
+(defn remove-punct-repetition [^String line]
   (clojure.string/replace line #"(\p{Punct})\1\1\1+" "$1$1$1"))

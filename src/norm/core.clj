@@ -6,7 +6,8 @@
             [norm.data :as data]
             [norm.io :as io]
             [norm.train.dm-dict :as dm-dict]
-            [norm.train.twt-c :as twt-c])
+            [norm.train.twt-c :as twt-c]
+            [norm.train.nmd :as nmd])
   ; (:gen-class)
   )
 
@@ -68,6 +69,8 @@
                        (dm-dict/train))
             :twt-c (data/load-and-bind [:dict]
                        (twt-c/train))
+            :nmd (data/load-and-bind [:dict :dm-dict]
+                   (nmd/train))
             (fail (str "invalid training file: " id)))))))
 })
 

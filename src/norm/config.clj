@@ -5,7 +5,7 @@
 (def EX_DIR (.getParent (-> "" resource as-file)))
 
 (defn bracktise [s]
-  (str "{" s "}"))
+  (str "{" s "\n}"))
 
 (defn load-config [from]
   (-> from slurp bracktise read-string eval))
@@ -23,3 +23,6 @@
 
 ;make data path absolute
 (swap! OPTS update-in [:data :dir] #(str EX_DIR "/" %))
+
+(defn opt [& ks]
+  (get-in @OPTS ks))
