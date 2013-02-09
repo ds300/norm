@@ -1,6 +1,7 @@
 (ns norm.data
 (:require [norm.io :as io]
-          [norm.trie :as trie]))
+          [norm.trie :as trie]
+          [norm.config :as config]))
 
 (def FILES [
   :nmd
@@ -15,21 +16,22 @@
   :dpb
 ])
 
-(doseq [id (map name FILES)]
-  (.setDynamic (intern 'norm.data (symbol (.toUpperCase id)))))
+(doseq [id (map (comp symbol clojure.string/upper-case name) FILES)]
+  (.setDynamic (intern 'norm.data id)))
 
-(def PATHS (atom {}))
 
 (defn set-path! [id path]
-  (swap! PATHS conj [id path]))
+  (swap! config/OPTS update-in [:data :paths id] path))
 
-(defn set-paths! [dir]
-  (doseq [id FILES]
-    (set-path! id (str dir "/" (name id)))))
+
+(defn get-path [id]
+  (or
+    (get-in @config/OPTS [:data :paths id])
+    (str (get-in @config/OPTS [:data :dir]) "/" (name id))))
 
 
 (defn load- [id]
-  (let [path (@PATHS id)]
+  (let [path (get-path id)]
     (io/doing-done (str "Loading " id " from " path)
       (case id
         :nmd (into {} (io/parse-tsv path))

@@ -1,5 +1,6 @@
 (ns norm.core
-  (:require [clojure.tools.cli :as cli]
+  (:require [norm.config :as config]
+            [clojure.tools.cli :as cli]
             [clojure.java.io :as jio]
             [norm.trie :as trie]
             [norm.data :as data]
@@ -8,6 +9,11 @@
             [norm.train.twt-c :as twt-c])
   ; (:gen-class)
   )
+
+(def ARGS (atom nil))
+
+
+
 
 (defn print-help []
   (println "usage etc lol"))
@@ -36,20 +42,6 @@
 
 
 
-(defn set-data-paths!
-  [args]
-  "returns unused args"
-  (let [[opts unused _] (apply cli/cli
-                          (into
-                            [args ["-d" "--data-dir" "the data directory to use" :default "./data"]]
-                            (map
-                              #(do [(str "--" %) (str "override " % " path")])
-                              (map name data/FILES))))]
-    (data/set-paths! (:data-dir opts))
-    (doseq [[k v] (dissoc opts :data-dir)]
-      (data/set-path! k v))
-    unused))
-
 
 (def commands {
   ; "batch"
@@ -67,25 +59,52 @@
   ;     (when (= outf "json") (.write out "]"))
   ;     (shutdown-agents)
   ;     (.close out)))
-  "train"
-  (fn [id outfile & args]
-    (with-open [out (jio/writer (if (= "overwrite" outfile) (@data/PATHS (keyword id)) outfile))]
-      (binding [io/OUT out]
-        (case (keyword id)
-          :dm-dict (data/load-and-bind [:dict]
-                     (dm-dict/train))
-          :twt-c (data/load-and-bind [:dict]
-                     (twt-c/train))
-          (fail (str "invalid training file: " id))))))
+  "train" (fn []
+    (let [[id outfile & other_args] @ARGS]
+      (with-open [out (jio/writer (if (= ":o" outfile) (data/get-path (keyword id)) outfile))]
+        (binding [io/OUT out]
+          (case (keyword id)
+            :dm-dict (data/load-and-bind [:dict]
+                       (dm-dict/train))
+            :twt-c (data/load-and-bind [:dict]
+                       (twt-c/train))
+            (fail (str "invalid training file: " id)))))))
 })
+
+
+
 
 (defn -main
   "I don't do a whole lot."
   [& args]
-  ; start off by setting up the data paths and discarding any
-  ; associated args
-  (let [[command & args-] (set-data-paths! args)]
+  (reset! ARGS args)
+
+  ;; start off by setting up the data paths
+  ; get paths from command line
+  (let [[opts unused _] (apply cli/cli
+                          (into
+                            [@ARGS ["-d" "--data-dir" "the data directory to use"]]
+                            (map
+                              #(do [(str "--" %) (str "override " % " path")])
+                              (map name data/FILES))))]
+
+    ; swap dir if necessary
+    (when-let [data-dir (:data-dir args)]
+      (swap! config/OPTS assoc-in [:data :dir] data-dir))
+    
+    ; swap all other specified paths
+    (doseq [[k v] (dissoc opts :data-dir)]
+      (data/set-path! k v))
+
+    ; remove any consumed args
+    (reset! ARGS unused))
+
     ; now decide which command to dispatch to
-    (if-let [command-fn (commands command)]
-      (apply command-fn args-)
-      (fail (str "Unrecognised command: " command)))))
+    (if-let [command-fn (commands (first @ARGS))]
+      (do (swap! ARGS rest) (command-fn))
+      (fail (str "Unrecognised command: " (first @ARGS))))
+
+
+  (shutdown-agents))
+
+

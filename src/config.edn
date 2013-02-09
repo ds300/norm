@@ -1,0 +1,17 @@
+
+:data {
+  :dir "data"
+  :paths {
+;    :dict "data/dict"
+  }
+}
+
+:confusion-sets {
+  :lex-dist 2
+  :phon-dist 1
+  :post-rank-cutoff 10 ; percent
+}
+
+:train {
+  :nmd {}
+}
