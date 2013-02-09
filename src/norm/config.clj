@@ -21,3 +21,5 @@
   (when (.isFile user_config_file)
     (swap! OPTS #(merge-with map-merge % (load-config user_config_file)))))
 
+;make data path absolute
+(swap! OPTS update-in [:data :dir] #(str EX_DIR "/" %))

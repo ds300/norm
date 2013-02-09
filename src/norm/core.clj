@@ -79,7 +79,7 @@
   [& args]
   (reset! ARGS args)
 
-  ;; start off by setting up the data paths
+  ;; start off by setting up the manually-specified data paths
   ; get paths from command line
   (let [[opts unused _] (apply cli/cli
                           (into
