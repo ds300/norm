@@ -11,3 +11,6 @@
 
 (defn tokenise [text]
   (into [] (cmu.arktweetnlp.Twokenize/tokenizeRawTweetText text)))
+
+(defn remove-punct-repetition [line]
+  (clojure.string/replace line #"(\p{Punct})\1\1\1+" "$1$1$1"))
