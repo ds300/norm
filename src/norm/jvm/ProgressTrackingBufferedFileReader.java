@@ -6,6 +6,11 @@ import java.nio.channels.*;
 public class ProgressTrackingBufferedFileReader extends BufferedReader {
   private FileChannel channel;
   private long size;
+  private int iter_count;
+  private final int iters = 10;
+  private long last_checked = System.currentTimeMillis();
+  private float last_progress = 0f;
+  private float time_remaining = 0f;
   public ProgressTrackingBufferedFileReader (Reader in) {
     super(in);
   }
@@ -27,10 +32,23 @@ public class ProgressTrackingBufferedFileReader extends BufferedReader {
     }
   }
 
-  public float progress() {
+  public String progress() {
+
     try {
-      return 0.01f * (int)(100 * (100f / size) * channel.position());
-    } catch (IOException e) {return 100f;}
-    
+      float prog = (100f / size) * channel.position();
+      if (++iter_count == iters) {
+        long current_time = System.currentTimeMillis();
+        long time = current_time - last_checked;
+        float speed = (prog - last_progress) / time;
+        time_remaining = ((100f - prog) / speed) / 1000;
+        last_checked = current_time;
+        last_progress = prog;
+        iter_count = 0;
+      }
+      long hours = (int)time_remaining / (60*60);
+      long minutes = (int)(time_remaining / 60) % 60;
+      long seconds = (int)time_remaining % 60;
+      return String.format("but %.2f%% done, %dh%dm%ds remaining", prog, hours, minutes, seconds);
+    } catch (IOException e) {return "done!";}
   }
 }

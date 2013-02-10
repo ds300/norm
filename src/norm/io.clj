@@ -12,7 +12,7 @@
 (def join-tokens #(apply str (interpose " " %)))
 
 (defn prog-reader [filename]
-  (ProgressTrackingBufferedFileReader/make filename))
+  (norm.jvm.ProgressTrackingBufferedFileReader/make filename))
 
 (defmacro doing-done [msg & body]
   `(do 
