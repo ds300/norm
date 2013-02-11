@@ -8,8 +8,7 @@
             [norm.train.dm-dict :as dm-dict]
             [norm.train.twt-c :as twt-c]
             [norm.train.nmd :as nmd])
-  ; (:gen-class)
-  )
+  (:gen-class))
 
 (def ARGS (atom nil))
 

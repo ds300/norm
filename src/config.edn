@@ -15,6 +15,10 @@
 :train {
   :nmd {
     :post-rank-cutoff 30 ; percent
-    :freq-cutoff 4
+    :freq-cutoff 10
+    :min-length 4
+    :n-gram-order 2
+    :window-size 3
+    :measure "jensen"
   }
 }

@@ -7,7 +7,8 @@
                  [org.clojure/data.json "0.2.1"]
                  [commons-lang/commons-lang "2.6"]
                  [commons-codec/commons-codec "1.6"]
-                 [org.clojure/tools.cli "0.2.2"]]
+                 [org.clojure/tools.cli "0.2.2"]
+                 [uk.ac.susx.mlcl/Byblo "2.1.0"]]
   :repositories {"byblo" "http://kungf.eu:8081/nexus/content/groups/public/"}
   :java-source-paths ["src/norm/jvm/"]
   :main norm.core)

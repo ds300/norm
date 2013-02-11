@@ -3,7 +3,7 @@
 (def LAST_STRING_LENGTH (atom 0))
 (def ^:dynamic GET (fn [] ""))
 (def ALIVE (atom false))
-(def ^:dynamic SLEEP_INTERVAL 50)
+(def ^:dynamic SLEEP_INTERVAL 200)
 (def WORKER_THREAD (atom nil))
 
 (defn- spaces [n] (apply str (repeat n " ")))

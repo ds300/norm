@@ -22,7 +22,7 @@
 
 
 (defn set-path! [id path]
-  (print "Setting " id " to " path)
+  (println "Setting " id " to " path)
   (swap! config/OPTS assoc-in [:data :paths id] path))
 
 

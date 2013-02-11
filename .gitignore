@@ -11,3 +11,4 @@ pom.xml
 .DS_Store
 /data
 /config.edn
+deploy*
