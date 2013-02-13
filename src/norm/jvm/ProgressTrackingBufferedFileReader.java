@@ -48,7 +48,7 @@ public class ProgressTrackingBufferedFileReader extends BufferedReader {
       long hours = (int)time_remaining / (60*60);
       long minutes = (int)(time_remaining / 60) % 60;
       long seconds = (int)time_remaining % 60;
-      return String.format("but %.2f%% done, %dh%dm%ds remaining", prog, hours, minutes, seconds);
-    } catch (IOException e) {return "done!";}
+      return String.format("%.2f%% done, %dh%dm%ds remaining", prog, hours, minutes, seconds);
+    } catch (IOException e) {return "100.00% done 0h0m0s remaining";}
   }
 }

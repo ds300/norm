@@ -21,6 +21,6 @@
     :pair-rank-cutoff 40000
     :n-gram-order 2
     :window-size 3
-    :measure "jensen"
+    :measure "Lin"
   }
 }
