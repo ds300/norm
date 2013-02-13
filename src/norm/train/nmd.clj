@@ -65,7 +65,7 @@
                           (frequencies (mapcat word-tokens (io/lines-in in))))]
       (if (.contains data/DICT word)
         (swap! IV conj [word freq (atom {})])
-        (when (<= min_freq freq)
+        (when (and (<= min_freq freq) (<= min_length (count word)))
           (swap! OOV conj [word freq (atom {})])))))
   (send CTX_REL into (.words @OOV))
   (await CTX_REL))
@@ -104,7 +104,9 @@
     (doseq [[index word] (map vector (range) tokens)]
       (when (@CTX_REL word)
         (cond
-          (.contains data/DICT word) (store-context IV word (get-context index))
+          ;; @IV because twokenize is different and can't guarantee that word-tokens has picked
+          ;; up on the word and given it an atom
+          (@IV word) (store-context IV word (get-context index))
           (.contains @OOV word) (store-context OOV word (get-context index)))))))
 
 (defn extract-all-context! []
@@ -195,7 +197,7 @@
                            (recur acc others))
                          acc))]
       (swap! COUNTER inc)
-      (into [word] (last (sort-by second candidates))))))
+      [word (first (last (sort-by second candidates)))])))
 
 (def PAIRS (atom []))
 
@@ -203,6 +205,19 @@
   (reset! COUNTER 0)
   (progress/monitor [#(str "Deriving contextually similar pairs ... " @COUNTER " words processed")]
     (swap! PAIRS into (pmap-chunked 100 get-pair @OOV))))
+
+(def ^:dynamic SSK)
+
+(defn rank-pairs! []
+  (reset! COUNTER 0)
+  (progress/monitor [#(str "Computing pair similarity using substring kernel ... " @COUNTER " pairs processed")]
+    (pmap-chunked 500
+      (fn [i [oov iv]]
+        (swap! PAIRS assoc i [oov iv (SSK oov iv)])
+        (swap! COUNTER inc))
+      (map vector (range) @PAIRS)))
+  (io/doing-done "sorting pairs"
+    (swap! PAIRS (partial sort-by last))))
 
 
 (defn train []
@@ -217,5 +232,11 @@
   ; now done with IV and OOV so reset them and allow garbage collector to do its magic
   (reset! IV nil)
   (reset! OOV nil)
+  (binding [SSK (let [ssk (cc.mallet.types.StringKernel.)]
+                  (fn [^String s1 ^String s2] (.K ssk s1 s2)))]
+    (rank-pairs!))
+
+  (io/doing-done "Applying cutoff and writing to disk"
+    (io/spit-tsv io/OUT (map (partial take 2) (take (config/opt :train :nmd :pair-rank-cutoff) @PAIRS))))
 
 )
