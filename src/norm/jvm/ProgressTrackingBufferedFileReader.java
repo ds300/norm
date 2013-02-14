@@ -3,6 +3,7 @@ package norm.jvm;
 import java.io.*;
 import java.nio.*;
 import java.nio.channels.*;
+import java.util.zip.*;
 public class ProgressTrackingBufferedFileReader extends BufferedReader {
   private FileChannel channel;
   private long size;
@@ -30,6 +31,27 @@ public class ProgressTrackingBufferedFileReader extends BufferedReader {
       System.exit(1);
       return null; 
     }
+  }
+
+  public static ProgressTrackingBufferedFileReader makeGzip (String filename) {
+    try {
+      File thefile = new File(filename);
+      long size = thefile.length();
+      FileInputStream stream = new FileInputStream(thefile);
+      FileChannel channel = stream.getChannel();
+      ProgressTrackingBufferedFileReader ret = new ProgressTrackingBufferedFileReader(new InputStreamReader(new GZIPInputStream(stream)));
+      ret.channel = channel;
+      ret.size = size;
+      return ret;
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+      System.exit(1);
+      return null; 
+    } catch (IOException e) {
+      e.printStackTrace();
+      System.exit(1);
+      return null;
+    } 
   }
 
   public String progress() {
