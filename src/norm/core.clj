@@ -8,6 +8,7 @@
             [norm.train.dm-dict :as dm-dict]
             [norm.train.twt-c :as twt-c]
             [norm.train.nmd :as nmd]
+            [norm.train.tlm :as tlm]
             [norm.train.dpb :as dpb])
   (:gen-class))
 
@@ -62,18 +63,18 @@
   ;     (.close out)))
   "train" (fn []
     (let [[id outfile & other_args] @ARGS]
-      (with-open [out (jio/writer (if (= ":o" outfile) (data/get-path (keyword id)) outfile))]
-        (binding [io/OUT out]
-          (case (keyword id)
-            :dm-dict (data/load-and-bind [:dict]
-                       (dm-dict/train))
-            :twt-c (data/load-and-bind [:dict]
-                       (twt-c/train))
-            :nmd (data/load-and-bind [:dict :dm-dict]
-                   (nmd/train))
-            :dpb (data/load-and-bind [:dict]
-                   (dpb/train))
-            (fail (str "invalid training file: " id)))))))
+      (binding [io/OUT_PATH (if (= ":o" outfile) (data/get-path (keyword id)) outfile)]
+        (case (keyword id)
+          :dm-dict (data/load-and-bind [:dict]
+                     (dm-dict/train))
+          :twt-c (data/load-and-bind [:dict]
+                     (twt-c/train))
+          :nmd (data/load-and-bind [:dict :dm-dict]
+                 (nmd/train))
+          :dpb (data/load-and-bind [:dict]
+                 (dpb/train))
+          :tlm (tlm/train)
+          (fail (str "invalid training file: " id))))))
 })
 
 

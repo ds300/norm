@@ -262,6 +262,8 @@
     (binding [*proximity-measure* (get-measure (config/opt :train :nmd :measure))]
       (make-pairs!))
     (rank-pairs!)
-    (io/spit-tsv io/OUT (take (config/opt :train :nmd :pair-rank-cutoff) @PAIRS))
+    (with-open [out (clojure.java.io/writer io/OUT_PATH)]
+      (io/spit-tsv out (take (config/opt :train :nmd :pair-rank-cutoff) @PAIRS)))
+    
   ))
 

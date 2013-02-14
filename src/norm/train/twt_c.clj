@@ -19,7 +19,9 @@
       (partition-all 1000 lines))))
 
 (defn train []
-  (let [in (io/prog-reader (data/get-path :twt))]
+  (let [in (io/prog-reader (data/get-path :twt))
+        out (clojure.java.io/writer io/OUT_PATH)]
     (progress/monitor [#(str "Filtering tweets ... " (.progress in) "%")]
       (doseq [line (filter-in-parallel (io/lines-in in))]
-        (.write io/OUT (str (words/remove-punct-repetition line) "\n"))))))
+        (.write out (str (words/remove-punct-repetition line) "\n"))))
+    (.close out)))

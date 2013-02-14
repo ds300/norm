@@ -49,4 +49,5 @@
 (defn train []
   (let [filenames (map #(.getAbsolutePath %) (.listFiles (java.io.File. (data/get-path :nyt))))
         freqs (apply (partial merge-with +) (doall (map file-freqs filenames)))]
-    (io/doing-done "writing to disk" (io/spit-tsv io/OUT (map flatten freqs)))))
+    (with-open [out (clojure.java.io/writer io/OUT_PATH)]
+      (io/doing-done "writing to disk" (io/spit-tsv out (map flatten freqs))))))

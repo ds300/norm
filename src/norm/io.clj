@@ -7,7 +7,7 @@
   (:use [clojure.string :only (join)]))
 
 (def ^:dynamic IN)
-(def ^:dynamic OUT)
+(def ^:dynamic OUT_PATH)
 
 (def join-tokens #(apply str (interpose " " %)))
 
