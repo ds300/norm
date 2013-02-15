@@ -23,4 +23,8 @@
     :window-size 3
     :measure "Lin"
   }
+
+  :dpb {
+    :num-sents 40000000
+  }
 }

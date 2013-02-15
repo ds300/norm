@@ -1,5 +1,6 @@
 (ns norm.words
-  (:require [norm.data :as data]))
+  (:require [norm.data :as data]
+            [norm.trie :as trie]))
 
 (def double-metaphone
   (let [dm (org.apache.commons.codec.language.DoubleMetaphone.)]
@@ -12,6 +13,17 @@
 (defn tokenise [^String text]
   (into [] (cmu.arktweetnlp.Twokenize/tokenizeRawTweetText text)))
 
+(defn raw-confusion-set [dict dm-dict lex-dist phon-dist word]
+  (into []
+    (concat
+      (mapcat dm-dict (trie/find-within dm-dict (double-metaphone word) phon-dist))
+      (trie/find-within dict word lex-dist))))
+
+(defn rank-confusion-set [left-token right-token candidates]
+  (map (partial drop 1)
+    (sort
+      (map #(do [(- (.scoreSentence data/TLM [left-token % right-token])) %])
+        candidates))))
 
 
 (defn remove-punct-repetition [^String line]

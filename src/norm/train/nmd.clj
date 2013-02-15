@@ -82,9 +82,11 @@
 
 ;;;; GENERATING CONFUSIONS SETS ;;;;
 
+
+; tODO change this to use words/raw-confusion-set
 (defn confusion-set [word]
   ; only exctract IV words that have been observed in twt
-  (let [iv_deref @IV_WORDS ; deref this to save processings
+  (let [iv_deref @IV_WORDS ; deref this once to save processings
         dm_words (filter iv_deref
                    (mapcat data/DM-DICT
                       (trie/find-within data/DM-DICT (words/double-metaphone word) *phon-dist*)))
