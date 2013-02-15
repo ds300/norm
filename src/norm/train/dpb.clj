@@ -93,6 +93,5 @@
               (io/spit-tsv out @IV_IDS)
               (.write out "\n")
               (io/spit-tsv out (for [[k v] freqs]
-                                 ; flatten vector and get log prob in stead of freq
-                                 (conj k (Math/log (inc (/ (double v) num_deps))))))
-              ))))))
+                                 ; flatten vector and get prob in stead of freq
+                                 (conj k (/ (double v) num_deps))))))))))

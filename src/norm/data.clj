@@ -35,10 +35,10 @@
   (let [[ids deps] (partition-by count (io/parse-tsv path))]
     [
       (into {} 
-        (for [[k v] ids] (Integer. v)))
+        (for [[k v] ids] [k (Integer. v)]))
       (into {}
         (for [[gov dep off score] deps] 
-          [(Integer. gov) (Integer. dep) (Integer. off) (Double. score)]))
+          [[(Integer. gov) (Integer. dep) (Integer. off)] (Double. score)]))
     ]))
 
 (defn load- [id]
@@ -58,3 +58,5 @@
 (defmacro load-and-bind [ids & body]
   `(clojure.core/binding ~(vec (mapcat (fn [id] [(symbol (str "norm.data/" (.toUpperCase (name id)))) `(norm.data/load- ~id)]) ids) )
      (do ~@body)))
+
+
