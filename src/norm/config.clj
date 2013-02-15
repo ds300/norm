@@ -1,9 +1,6 @@
 (ns norm.config
   (:use [clojure.java.io :only (resource as-file)])
   (:gen-class))
-; (println "class" (-> "config.edn" resource str (subs 4) as-file))
-; execution directory
-;(def EX_DIR (.getParent (-> "" resource as-file)))
 
 (def EX_DIR (->> "config.edn"
               resource
@@ -12,8 +9,6 @@
               as-file
               (.getParentFile)
               (.getParent)))
-
-(println "ex_dir" EX_DIR)
 
 (defn bracktise [s]
   (str "{" s "\n}"))
