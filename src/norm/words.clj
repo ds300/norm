@@ -1,14 +1,12 @@
 (ns norm.words
-  (:require [norm.data :as data]
-            [norm.trie :as trie]))
+  (:require [norm.trie :as trie])
+  (:use [clojure.string :only (join replace)]))
 
 (def double-metaphone
   (let [dm (org.apache.commons.codec.language.DoubleMetaphone.)]
     (fn [^String string]
       (.doubleMetaphone dm
         (clojure.string/replace string #"(.)\1\1+" "$1$1")))))
-
-(defn confusion-set [word lexi-d phon-d])
 
 (defn tokenise [^String text]
   (into [] (cmu.arktweetnlp.Twokenize/tokenizeRawTweetText text)))
@@ -19,33 +17,44 @@
       (mapcat dm-dict (trie/find-within dm-dict (double-metaphone word) phon-dist))
       (trie/find-within dict word lex-dist))))
 
-(defn rank-confusion-set [left-token right-token candidates]
-  (map (partial drop 1)
-    (sort
-      (map #(do [(- (.scoreSentence data/TLM [left-token % right-token])) %])
-        candidates))))
+; TODO: generalise this for window size maybe?
+(defn lm-ranked-confusion-set [lm get-cs tokens i]
+  (let [cs            (get-cs (tokens i))
+        ranks         (atom (into {} (map vector cs (repeat 0))))
+        lctx          (context-left tokens 2 i)
+        rctx          (context-right tokens 2 i)
+        ; sort confusion set by the scores of sentences returned by lsfn
+        ; in descending order of goodness
+        sort-         (fn [lsfn]
+                        (map last
+                          (sort
+                            (for [c cs]
+                              [(- (.scoreSentence lm (lsfn c))) c]))))
+        ; get [word rank] pairs for the confusion set
+        rank          (fn [lsfn]
+                        (map vector
+                          (sort- lsfn)
+                          (range)))
+        ; update the ranks atom with cs ranked by lsfn
+        update-ranks! (fn [lsfn]
+                       (swap! ranks (partial merge-with +) (into {} (rank lsfn))))]
+    (when (seq lctx)
+      (update-ranks! #(conj lctx %)))
+    (when (seq rctx)
+      (update-ranks! #(cons % (seq rctx))))
+    (update-ranks! #(filter identity [(last lctx) % (first rctx)]))
+    (map first (sort-by last @ranks))))
 
 
 (defn remove-punct-repetition [^String line]
-  (clojure.string/replace line #"(\p{Punct})\1\1\1+" "$1$1$1"))
+  (replace line #"(\p{Punct})\1\1\1+" "$1$1$1"))
 
 (defn n-grams
-  "returns a vector of the n-grams in the given sequence"
+  "Returns a vector of the n-grams in the given sequence.
+   For lazy n-grams just do (partition n 1 coll) or map vec over that
+   if you need your grams as vectors."
   [n sequence]
   (mapv vec (partition n 1 sequence)))
-
-(defn numeric-label
-  "labels the items in sequence (must be stringifiable).
-
-  e.g. with   label=\"hello:\"
-       and    sequence=[[\"steve\" \"wilson\"] [\"andy\" \"serkis\"]]
-  you get:
-    (\"hello:1:steve wilson\" \"hello:2:andy serkis\")"
-  [^String label ^clojure.lang.ISeq sequence]
-  (map
-    (fn [i gram] (str label i ":" (apply str (interpose " " gram))))
-    (rest (range))
-    sequence))
 
 (defn context-left [coll window_size i]
   (subvec coll
@@ -64,10 +73,3 @@
 (defn ngram-context-right [grams n window_size i]
   (context-right grams window_size i))
 
-
-(defn ngram-context-labeled
-  "extracts stringified versions of context for the given index"
-  [label grams n window_size i]
-  (concat
-    (numeric-label (str label "-") (reverse (ngram-context-left grams n window_size i)))
-    (numeric-label (str label "+") (ngram-context-right grams n window_size i))))
