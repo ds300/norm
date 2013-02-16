@@ -40,20 +40,19 @@
   ([start coll]
     (map vector (iterate inc start) coll)))
 
-(defmacro bind-partial
-  "macro to make binding dynamic partial functions a little sexier.
-  e.g. (bind-partial [(foo arg1 arg2)
+(defmacro let-partial
+  "macro to make assigning partial functions a little sexier.
+  e.g.  (let-partial [(foo arg1 arg2)
                       (bar arg4)]
-         (foo arg3)
-         (bar))
+          (foo arg3)
+          (bar))
   expands to
-       (binding [foo (partial foo arg1 arg2)
-                 bar (partial bar arg4)]
-         (foo arg3)
-         (bar))
-  I guess foo must be dynamic."
+        (let [foo (partial foo arg1 arg2)
+              bar (partial bar arg4)]
+          (foo arg3)
+          (bar))"
   [[& forms] & body]
-  `(clojure.core/binding
+  `(clojure.core/let
     ~(apply vector
       (mapcat
         (fn [[f & args :as things]]
