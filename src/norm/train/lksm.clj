@@ -1,16 +1,18 @@
 (ns norm.train.lksm
   (:import [de.bwaldvogel.liblinear Linear Problem Parameter SolverType]
             [java.io File])
-  (:require [norm.io :as io]
+  (:require [norm.config :as config]
+            [norm.io :as io]
             [norm.data :as data]
+            [norm.progress :as progress]
             [norm.words :as words]
             [norm.utils :as utils]))
 
 (defn extract-positive-features [DICT tokens i]
   (let [dependent (tokens i)
-        lctx (for [[i v] (utils/indexify 1 (reverse (words/context-left tokens 3 i)))] [(- i) v])
-        rctx (utils/indexify 1 (words/context-right tokens 3 i))]
-    (for [[offset governor] (filter #(.contains DICT %) (concat lctx rctx))]
+        lctx (map vector (iterate dec -1) (reverse (words/context-left tokens 3 i)))
+        rctx (map vector (iterate inc 1) (words/context-right tokens 3 i))]
+    (for [[offset governor] (filter #(.contains DICT (last %)) (concat lctx rctx))]
       [true governor dependent offset])))
 
 (defn derive-negative-features [positive_features confusion_set]
@@ -50,27 +52,27 @@
   (apply str 
     (if posneg 1 0) " " 
     dpb-score-feature-id ":" score " "
-    (flatten (interpose " " (sort [[gov_id ":1"] [dep_id ":1"] [off_id ":1"]])))
+    (apply str (flatten (interpose " " (sort [[gov_id ":1"] [dep_id ":1"] [off_id ":1"]]))))
     "\n"))
 
 (defn store-features:first-pass! [feature-predicate pos-feature-vector-ids tmpout feats]
-  (binding [*out* tmpout]
-    (doseq [[posneg gov_id dep_id off_id score :as f] (filter feature-predicate feats)]
-      (when posneg (pos-feature-vector-ids [gov_id dep_id off_id])) ; keep track of positive feature vector ids
-      (prn f))))
+  (doseq [[posneg gov_id dep_id off_id score :as f] (filter feature-predicate feats)]
+    (when posneg (pos-feature-vector-ids [gov_id dep_id off_id])) ; keep track of positive feature vector ids
+    (.write tmpout (str (pr-str f) "\n"))))
 
+(defn try-read-string [string]
+  (try (read-string string) (catch Exception e (do (prn "das string be:" string) (throw e)))))
 
 (defn store-features:second-pass! [to-svm-format feature-predicate tmpin tmpout]
   (doseq [line  (->> tmpin
                   line-seq
                   (filter not-empty)
-                  (map read-string)
+                  (map try-read-string)
                   (filter feature-predicate)
                   (map to-svm-format))]
     (.write tmpout line)))
 
-(defn load-problem [input_path bias]
-  )
+
 
 (defn get-confusion-set [dict dm-dict tlm lex-dist phon-dist n tokens i]
   (let [get-cs (partial words/raw-confusion-set dict dm-dict lex-dist phon-dist)]
@@ -83,17 +85,18 @@
         bias      (config/opt :train :lksm :bias)
         eps       (config/opt :train :lksm :eps)
         c         (config/opt :train :lksm :c)
-        solver    (eval (symbol (str "SolverType/" (.toUpperCase (config/opt :train :lksm :solver)))))]
+        solver    (eval (symbol (str "de.bwaldvogel.liblinear.SolverType/" (.toUpperCase (config/opt :train :lksm :solver)))))]
     (data/load-and-bind [:dict :dm-dict :tlm :dpb]
       (let [feature-ids             (utils/unique-id-getter)
             iv-ids                  (utils/unique-id-getter)
             pos-feature-vector-ids  (utils/unique-id-getter)
             lex_dist                (config/opt :confusion-sets :lex-dist)
-            phon_dist               (config/opt :confusion-sets :phon_dist)
+            phon_dist               (config/opt :confusion-sets :phon-dist)
             num_candidates          (config/opt :train :lksm :num-candidates)]
+        (feature-ids :garbage) ; do this because liblinear doesn't like indices to start at 0
         (feature-ids :dpb-score) ;add this in because it won't get done automatically
         (utils/let-partial [(get-confusion-set data/DICT data/DM-DICT data/TLM lex_dist phon_dist num_candidates)
-                            (extract-features data/DICT data/DPB feature-ids iv-ids get-confusion-set)
+                            (extract-features! data/DICT data/DPB feature-ids iv-ids get-confusion-set)
                             (legit-feature? pos-feature-vector-ids)
                             (encode-feature-vector (feature-ids :dpb-score))
                             (store-features:first-pass! legit-feature? pos-feature-vector-ids)
@@ -106,21 +109,23 @@
                 (line-seq)
                 (filter not-empty)
                 (map (comp words/tokenise clojure.string/lower-case))
-                (pmapcat extract-features)
-                (store-features:first-pass! out)))
+                (utils/pmapcat extract-features!)
+                (store-features:first-pass! out))
+              (.flush out))
           (println "Extracting feature-vectors: second pass")
           (with-open [in (io/prog-reader tmp1_path)
                       out (clojure.java.io/writer tmp2_path)]
             (progress/monitor [#(str "\t" (.progress in)) 1000]
-              (store-features:second-pass! in out)))))))
+              (store-features:second-pass! in out)
+              (.flush out)))))))
 
     ; delete tmp1 and collect garbage before proceeding with model training.
     (.delete (File. tmp1_path))
     (dotimes [_ 5] (System/gc))
 
-    (let [problem   (io/doing-done "Loading Problem" (Problem/loadFromFile (File. tmp2_path) bias))
+    (let [problem   (io/doing-done "Loading Problem" (Problem/readFromFile (File. tmp2_path) bias))
           parameter (Parameter. solver c eps)
-          model     (io/doing-done "Training model" (Liner/train problem))]
+          model     (io/doing-done "Training model" (Linear/train problem parameter))]
       (.delete (File. tmp2_path))
       (io/doing-done "Writing model to disk"
         (.save model (File. io/OUT_PATH))))))
