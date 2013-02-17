@@ -27,4 +27,11 @@
   :dpb {
     :num-sents 40000000
   }
+
+  :lksm {
+    :bias 1.0
+    :eps 0.01
+    :c 1.0
+    :num-candidates 1
+  }
 }
