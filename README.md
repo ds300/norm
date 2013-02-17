@@ -1,13 +1,11 @@
 # norm
 
-A Clojure library designed to ... well, that part is up to you.
+A Clojure library designed to perform lexical normalisation of tweets.
 
 ## Usage
 
-FIXME
+don't use it (it doesn't work yet)
 
 ## License
-
-Copyright © 2013 FIXME
 
 Distributed under the Eclipse Public License, the same as Clojure.
