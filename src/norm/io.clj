@@ -14,12 +14,21 @@
 (defn prog-reader [filename]
   (norm.jvm.ProgressTrackingBufferedFileReader/make filename))
 
+(defn prog-reader-gz [filename]
+  (norm.jvm.ProgressTrackingBufferedFileReader/makeGzip filename))
+
 (defmacro doing-done [msg & body]
   `(do 
     (let [result# (do (print ~msg "... ")
     (.flush *out*) ~@body)]
       (println "done!")
       result#)))
+
+(defn writer-gz [filename]
+  (-> filename
+    (java.io.FileOutputStream.)
+    (java.util.zip.GZIPOutputStream.)
+    (java.io.OutputStreamWriter.)))
 
 
 (defn line-seq-with-close
@@ -98,4 +107,29 @@
   }
 )
 
+(defn open- [mode f]
+  (let [path (if (instance? java.io.File f) (.getAbsolutePath f) f)]
+    (case mode
+      :w  (clojure.java.io/writer path)
+      :wz (writer-gz path)
+      :r  (prog-reader path)
+      :rz (prog-reader-gz path))))
+
+
+
+(defmacro open
+  [bindings & body]
+  (cond
+    (= 0 (count bindings))
+      `(do ~@body)
+    (= 0 (mod (count bindings) 3))
+      (let [[mode id f & others] bindings]
+        `(clojure.core/let [~id (norm.io/open- ~mode ~f)]
+           (try
+             (norm.io/open ~(drop 3 bindings) ~@body)
+             (finally ~@(filter identity
+                          [(when (#{:w :wz} mode) `(.flush ~id)) `(.close ~id)])))))
+  
+    :else (throw (IllegalArgumentException.
+                   (str "number of forms in binding vector must be a multiple of three" bindings)))))
 
