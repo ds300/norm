@@ -1,6 +1,6 @@
 (ns norm.words
   (:require [norm.trie :as trie])
-  (:use [clojure.string :only (join replace)]))
+  (:use [clojure.string :only (join replace lower-case)]))
 
 (def double-metaphone
   (let [dm (org.apache.commons.codec.language.DoubleMetaphone.)]
@@ -11,7 +11,7 @@
 (defn tokenise [^String text]
   (into [] (cmu.arktweetnlp.Twokenize/tokenizeRawTweetText text)))
 
-
+(def tokenise-lower (comp tokenise lower-case))
 
 
 

@@ -20,19 +20,22 @@
    and then returned.
    When passed two args, if there is an id for the first it is returned,
    otherwise the value of the second arg is retured."
-  []
-  (let [ids (ref {})]
-    (fn
-      ([] @ids)
-      ([elem]
-        (or 
-          (@ids elem)
-          (dosync
-            (or
-              (@ids elem)
-              (dec (count (alter ids #(assoc % elem (count %)))))))))
-      ([elem not_found]
-        (@ids elem not_found)))))
+  ([] (unique-id-getter 0))
+  ([start_value]
+    (let [ids (ref {})]
+      (fn
+        ([] @ids)
+        ([elem]
+          (or 
+            (@ids elem)
+            (dosync
+              (or
+                (@ids elem)
+                (+ start_value -1
+                  (count
+                    (alter ids #(assoc % elem (+ start_value (count %))))))))))
+        ([elem not_found]
+          (@ids elem not_found))))))
 
 (defn counter 
   ([start_value]  (let [n (atom start_value)]

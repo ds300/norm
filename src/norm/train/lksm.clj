@@ -76,7 +76,7 @@
       (take n (words/lm-ranked-confusion-set tlm get-cs tokens i)))))
 
 
-(defn train []
+(defn train! []
   (let [tmp1_path (str io/OUT_PATH ".tmp1")
         tmp2_path (str io/OUT_PATH ".tmp2")
         ids_path  (str io/OUT_PATH "-ids")
@@ -85,39 +85,36 @@
         c         (config/opt :train :lksm :c)
         solver    (eval (symbol (str "de.bwaldvogel.liblinear.SolverType/" (.toUpperCase (config/opt :train :lksm :solver)))))]
     (data/load-and-bind [:dict :dm-dict :tlm :dpb]
-      (let [feature-ids             (utils/unique-id-getter)
+      (let [feature-ids             (utils/unique-id-getter 1)
             pos-feature-vector-ids  (utils/unique-id-getter)
             lex_dist                (config/opt :confusion-sets :lex-dist)
             phon_dist               (config/opt :confusion-sets :phon-dist)
             num_candidates          (config/opt :train :lksm :num-candidates)
-            get-confusion-set       (confusion-set-getter data/DICT data/DM-DICT data/TLM lex_dist phon_dist num_candidates)]
-        (feature-ids :garbage) ; do this because liblinear doesn't like indices to start at 0
-        (feature-ids :dpb-score) ;add this in because it won't get done automatically
-        (utils/let-partial [(extract-features! data/DICT data/DPB feature-ids (utils/unique-id-getter) get-confusion-set)
-                            (legit-feature? pos-feature-vector-ids)
-                            (encode-feature-vector (feature-ids :dpb-score))
-                            (store-features:first-pass! legit-feature? pos-feature-vector-ids)
-                            (store-features:second-pass! encode-feature-vector legit-feature?)]
-          (println "Extracting feature-vectors: first pass")
-          (with-open [in (io/prog-reader (data/get-path :twt-c))
-                      out (clojure.java.io/writer tmp1_path)]
-            (progress/monitor [#(str "\t" (.progress in)) 1000]
-              (->> in
-                (line-seq)
-                (filter not-empty)
-                (map (comp words/tokenise clojure.string/lower-case))
-                (utils/pmapcat extract-features!)
-                (store-features:first-pass! out))
-              (.flush out))
-          (println "Storing feature-ids")
-          (with-open [out (clojure.java.io/writer ids_path)]
-            (io/spit-tsv out (seq (feature-ids))))
-          (println "Extracting feature-vectors: second pass")
-          (with-open [in (io/prog-reader tmp1_path)
-                      out (clojure.java.io/writer tmp2_path)]
-            (progress/monitor [#(str "\t" (.progress in)) 1000]
-              (store-features:second-pass! in out)
-              (.flush out)))))))
+            get-confusion-set       (confusion-set-getter data/DICT data/DM-DICT data/TLM lex_dist phon_dist num_candidates)
+            extract-feats!_         (partial extract-features data/DICT data/DPB feature-ids (utils/unique-id-getter) get-confusion-set)
+            legit-feat?_            (partial legit-feature? pos-feature-vector-ids)
+            encode-feat_            (partial encode-feature-vector (feature-ids :dpb-score))
+            store-feats-1!_         (partial store-features:first-pass! legit-feat?_ pos-feature-vector-ids)
+            store-feats-2!_         (partial store-features:second-pass! encode-feat legit-feat?_)]
+
+        (println "Extracting feature-vectors: first pass")
+        (io/open [:r in (data/get-path :twt-c)
+                  :w out tmp1_path]
+          (progress/monitor [#(str "\t" (.progress in)) 1000]
+            (->> in
+              (line-seq)
+              (filter not-empty)
+              (map (comp words/tokenise clojure.string/lower-case))
+              (utils/pmapcat extract-feats!_)
+              (store-feats-1!_ out)))
+        (println "Storing feature-ids")
+        (io/open [:w out ids_path]
+          (io/spit-tsv out (seq (feature-ids))))
+        (println "Extracting feature-vectors: second pass")
+        (io/open [:r in tmp1_path
+                  :w out tmp2_path]
+          (progress/monitor [#(str "\t" (.progress in)) 1000]
+            (store-feats-2!_ in out))))))
 
     ; delete tmp1 and collect garbage before proceeding with model training.
     (.delete (File. tmp1_path))

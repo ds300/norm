@@ -56,7 +56,7 @@
 (defn get-absolute-path [^java.io.File file]
   (.getAbsolutePath file))
 
-(defn train []
+(defn train! []
   (data/load-and-bind [:dict]
     (println "Extracting dependencies from up to" n "sentences in nyt corpus...")
     (let [*sentence-counter* (utils/counter)

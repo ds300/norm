@@ -115,8 +115,6 @@
       :r  (prog-reader path)
       :rz (prog-reader-gz path))))
 
-
-
 (defmacro open
   [bindings & body]
   (cond
@@ -132,4 +130,3 @@
   
     :else (throw (IllegalArgumentException.
                    (str "number of forms in binding vector must be a multiple of three" bindings)))))
-
