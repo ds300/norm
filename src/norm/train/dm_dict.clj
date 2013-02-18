@@ -3,14 +3,17 @@
            [norm.words :as words]
            [norm.io :as io]))
 
-(defn train []
-  (with-open [out (clojure.java.io/writer io/OUT_PATH)]
-    (io/spit-tsv out
-      (map
-        (fn [[k vs]] (cons k vs))
-        (reduce
-          (fn [m w]
-            (let [dm (words/double-metaphone w)]
-              (update-in m [dm] conj w)))
-          {}
-          (map first data/DICT))))))
+(defn put-word-in-dm-dict [dm-dict word]
+  (let [dm_encoding (words/double-metaphone word)]
+    (update-in dm-dict [dm_encoding] conj word))) ;remember (conj nil thing) -> '(thing)
+
+(defn train! []
+  (data/load-and-bind [:dict]
+    (io/open [:w out io/OUT_PATH]
+      (io/spit-tsv out
+        (map
+          flatten
+          (reduce
+            put-word-in-dm-dict
+            {}
+            (.words data/DICT)))))))

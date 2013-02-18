@@ -63,21 +63,25 @@
           *dep-counter*      (utils/counter)
           *iv-ids*           (utils/unique-id-getter)
           n                  (config/opt :train :dpb :num-sents)
-          files (->> (data/get-path :nyt)
-                  (java.io.File.)
-                  (.listFiles)
-                  (filter filename-filter)
-                  (map get-absolute-path)
-                  (map io/prog-reader-gz))
-          extract-deps (partial extract-untyped-deps! data/DICT *iv-ids* *sentence-counter* *dep-counter*)
-          freqs (progress/monitor [#(str "\t" @*sentence-counter* " sentences processed") 1000]
-                  (->> files
-                    (mapcat documents)
-                    (mapcat sentences)
-                    (take n)
-                    (utils/pmapcat extract-deps)
-                    (frequencies)))
-          num_deps (*dep-counter*)] ;deref this once to save processings
+
+          files              (->> (data/get-path :nyt)
+                               (java.io.File.)
+                               (.listFiles)
+                               (filter filename-filter)
+                               (map get-absolute-path)
+                               (map io/prog-reader-gz))
+
+          extract-deps!_     (partial extract-untyped-deps! data/DICT *iv-ids* *sentence-counter* *dep-counter*)
+          
+          freqs              (progress/monitor [#(str "\t" @*sentence-counter* " sentences processed") 1000]
+                               (->> files
+                                 (mapcat documents)
+                                 (mapcat sentences)
+                                 (take n)
+                                 (utils/pmapcat extract-deps!_)
+                                 (frequencies)))
+          
+          num_deps           (*dep-counter*)] ;deref this once to save processings
         
       (doseq [f files] (.close f))
 

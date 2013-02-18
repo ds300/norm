@@ -104,7 +104,7 @@
             (->> in
               (line-seq)
               (filter not-empty)
-              (map (comp words/tokenise clojure.string/lower-case))
+              (map words/tokenise-lower)
               (utils/pmapcat extract-feats!_)
               (store-feats-1!_ out)))
         (println "Storing feature-ids")
