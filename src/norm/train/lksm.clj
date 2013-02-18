@@ -21,7 +21,7 @@
 
 (defn extract-features!
   "get-cs = (fn [tokens index] confusion_set)"
-  [DICT DPB feature-ids iv-ids get-confusion-set tokens]
+  [DICT DPB *feature-ids* *iv-ids* get-confusion-set tokens]
   (filter identity
     (apply concat
       (for [i (range (count tokens))]
@@ -29,24 +29,24 @@
           (let [confusion_set (get-confusion-set tokens i)
                 pos (extract-positive-features DICT tokens i)
                 neg (derive-negative-features pos confusion_set)]
-            ;; get feature-ids of iv-ids to save space
+            ;; get *feature-ids* of *iv-ids* to save space
             ;; also get DPB scores
             (for [[posneg gov dep off] (concat pos neg)]
               [  
                 posneg
-                (feature-ids [0 (iv-ids gov)])
-                (feature-ids [1 (iv-ids dep)])
-                (feature-ids off)
+                (*feature-ids* [0 (*iv-ids* gov)])
+                (*feature-ids* [1 (*iv-ids* dep)])
+                (*feature-ids* off)
                 (DPB gov dep off)
               ]
             )))))))
 
 (defn legit-feature?
   "illegitimate features are negative ones which have already been seen as positive ones"
-  [pos-feature-vector-ids [posneg gov_id dep_id off_id score]]
+  [*pos-feature-vector-ids* [posneg gov_id dep_id off_id score]]
   (or
     posneg
-    (pos-feature-vector-ids [gov_id dep_id off_id] false)))
+    (*pos-feature-vector-ids* [gov_id dep_id off_id] false)))
 
 (defn encode-feature-vector [dpb-score-feature-id [posneg gov_id dep_id off_id score]]
   (apply str 
@@ -55,9 +55,9 @@
     (apply str (flatten (interpose " " (sort [[gov_id ":1"] [dep_id ":1"] [off_id ":1"]]))))
     "\n"))
 
-(defn store-features:first-pass! [feature-predicate pos-feature-vector-ids tmpout feats]
+(defn store-features:first-pass! [feature-predicate *pos-feature-vector-ids* tmpout feats]
   (doseq [[posneg gov_id dep_id off_id score :as f] (filter feature-predicate feats)]
-    (when posneg (pos-feature-vector-ids [gov_id dep_id off_id])) ; keep track of positive feature vector ids
+    (when posneg (*pos-feature-vector-ids* [gov_id dep_id off_id])) ; keep track of positive feature vector ids
     (.write tmpout (str (pr-str f) "\n"))))
 
 (defn store-features:second-pass! [to-svm-format feature-predicate tmpin tmpout]
@@ -85,17 +85,17 @@
         c         (config/opt :train :lksm :c)
         solver    (eval (symbol (str "de.bwaldvogel.liblinear.SolverType/" (.toUpperCase (config/opt :train :lksm :solver)))))]
     (data/load-and-bind [:dict :dm-dict :tlm :dpb]
-      (let [feature-ids             (utils/unique-id-getter 1)
-            pos-feature-vector-ids  (utils/unique-id-getter)
-            lex_dist                (config/opt :confusion-sets :lex-dist)
-            phon_dist               (config/opt :confusion-sets :phon-dist)
-            num_candidates          (config/opt :train :lksm :num-candidates)
-            get-confusion-set       (confusion-set-getter data/DICT data/DM-DICT data/TLM lex_dist phon_dist num_candidates)
-            extract-feats!_         (partial extract-features data/DICT data/DPB feature-ids (utils/unique-id-getter) get-confusion-set)
-            legit-feat?_            (partial legit-feature? pos-feature-vector-ids)
-            encode-feat_            (partial encode-feature-vector (feature-ids :dpb-score))
-            store-feats-1!_         (partial store-features:first-pass! legit-feat?_ pos-feature-vector-ids)
-            store-feats-2!_         (partial store-features:second-pass! encode-feat legit-feat?_)]
+      (let [*feature-ids*             (utils/unique-id-getter 1)
+            *pos-feature-vector-ids*  (utils/unique-id-getter)
+            lex_dist                  (config/opt :confusion-sets :lex-dist)
+            phon_dist                 (config/opt :confusion-sets :phon-dist)
+            num_candidates            (config/opt :train :lksm :num-candidates)
+            get-confusion-set         (confusion-set-getter data/DICT data/DM-DICT data/TLM lex_dist phon_dist num_candidates)
+            extract-feats!_           (partial extract-features data/DICT data/DPB feature-ids (utils/unique-id-getter) get-confusion-set)
+            legit-feat?_              (partial legit-feature? *pos-feature-vector-ids*)
+            encode-feat_              (partial encode-feature-vector (*feature-ids* :dpb-score))
+            store-feats-1!_           (partial store-features:first-pass! legit-feat?_ *pos-feature-vector-ids*)
+            store-feats-2!_           (partial store-features:second-pass! encode-feat legit-feat?_)]
 
         (println "Extracting feature-vectors: first pass")
         (io/open [:r in (data/get-path :twt-c)
@@ -109,7 +109,7 @@
               (store-feats-1!_ out)))
         (println "Storing feature-ids")
         (io/open [:w out ids_path]
-          (io/spit-tsv out (seq (feature-ids))))
+          (io/spit-tsv out (seq (*feature-ids*))))
         (println "Extracting feature-vectors: second pass")
         (io/open [:r in tmp1_path
                   :w out tmp2_path]
