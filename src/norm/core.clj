@@ -72,8 +72,7 @@
                      (twt-c/train))
           :nmd (data/load-and-bind [:dict :dm-dict]
                  (nmd/train))
-          :dpb (data/load-and-bind [:dict]
-                 (dpb/train))
+          :dpb (dpb/train)
           :tlm (tlm/train)
           :lksm (lksm/train)
           (fail (str "invalid training file: " id))))))

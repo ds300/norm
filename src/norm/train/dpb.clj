@@ -3,47 +3,31 @@
             [norm.config :as config]
             [norm.data :as data]
             [norm.io :as io]
-            [norm.progress :as progress]))
+            [norm.progress :as progress]
+            [norm.utils :as utils]))
 
-
-
-(defn pmapcat [f coll]
-  (apply concat
-    (pmap f coll)))
-
-(def ^:dynamic *sentence-counter*) ;atom 0
-(def ^:dynamic *dep-counter*) ;atom 0
-
-;;;; unique ids for iv words ;;;;
-
-(def IV_IDS (atom {}))
-
-(defn get-id [word]
-  (or
-    (@IV_IDS word)
-    (dec (count (swap! IV_IDS #(assoc % word (count %)))))))
 
 ;;;; parsing xml ;;;;
 
-(defn- get-kids-by-tag [tag elem]
+(defn get-kids-by-tag [tag elem]
   (filter #(= tag (:tag %)) (:content elem)))
 
-(defn- documents [in]
+(defn documents [in]
   (get-kids-by-tag :DOC (xml/parse in)))
 
-(defn- sentences [document]
+(defn sentences [document]
   (mapcat (partial get-kids-by-tag :sentence) (get-kids-by-tag :sentences document)))
 
-(defn- tokens [sentence]
+(defn tokens [sentence]
   (mapv clojure.string/lower-case
     (for [telem (mapcat (partial get-kids-by-tag :token) (get-kids-by-tag :tokens sentence))]
       (first (:content (first (:content telem)))))))
 
-(defn- dependencies [sentence]
+(defn dependencies [sentence]
   (mapcat :content (get-kids-by-tag :basic-dependencies sentence)))
 
-(defn- extract-untyped-deps [sentence]
-  (swap! *sentence-counter* inc)
+(defn extract-untyped-deps! [^norm.jvm.Trie DICT *iv-ids* *sentence-counter* *dep-counter* sentence]
+  (*sentence-counter* 1)
   (let [tkns  (tokens sentence)
         deps  (dependencies sentence)
         getd  (fn [{[{[a] :content} {[b] :content}] :content {type :type} :attrs}]
@@ -59,39 +43,48 @@
                             (<= (Math/abs offset) 3))
                       ; get the words and check they're in the dictionary
                       (let [w1 (tkns (dec i)) w2 (tkns (dec j))]
-                        (when (every? #(.contains data/DICT %) [w1 w2])
+                        (when (every? #(.contains DICT ^String %) [w1 w2])
                           ; replace words with unique IDs
-                          [(get-id w1) (get-id w2) offset]))))))
+                          [(*iv-ids* w1) (*iv-ids* w2) offset]))))))
         transformed_deps (filter identity (map getd deps))]
-    (swap! *dep-counter* (partial + (count transformed_deps)))
+    (*dep-counter* (count transformed_deps))
     transformed_deps))
 
+(defn filename-filter [^java.io.File file]
+  (.. file getName (startsWith "nyt")))
 
-(defn open [filename]
-  (norm.jvm.ProgressTrackingBufferedFileReader/makeGzip filename))
-
+(defn get-absolute-path [^java.io.File file]
+  (.getAbsolutePath file))
 
 (defn train []
-  (binding [*sentence-counter* (atom 0)
-            *dep-counter* (atom 0)]
-    (let [filenames (map #(.getAbsolutePath %)
-                      (filter #(.. % getName (startsWith "nyt"))
-                        (.listFiles (java.io.File. (data/get-path :nyt)))))
-          n (config/opt :train :dpb :num-sents)]
-      (println "Extracting dependencies from up to" n "sentences in nyt corpus...")
-      (let [freqs (progress/monitor [#(str "\t" @*sentence-counter* " sentences processed") 1000]
-                    (->> filenames
-                      (map open)
-                      (mapcat documents)
-                      (mapcat sentences)
-                      (take n)
-                      (pmapcat extract-untyped-deps)
-                      (frequencies)))
-            num_deps @*dep-counter*] ;deref this once to save processings
-        (with-open [out (clojure.java.io/writer io/OUT_PATH)
-                    out-ids (clojure.java.io/writer (str io/OUT_PATH "-ids"))]
-          (io/doing-done "writing to disk"
-              (io/spit-tsv out-ids @IV_IDS)
-              (io/spit-tsv out (for [[k v] freqs]
-                                 ; flatten vector and get prob in stead of freq
-                                 (conj k (/ (double v) num_deps))))))))))
+  (data/load-and-bind [:dict]
+    (println "Extracting dependencies from up to" n "sentences in nyt corpus...")
+    (let [*sentence-counter* (utils/counter)
+          *dep-counter*      (utils/counter)
+          *iv-ids*           (utils/unique-id-getter)
+          n                  (config/opt :train :dpb :num-sents)
+          files (->> (data/get-path :nyt)
+                  (java.io.File.)
+                  (.listFiles)
+                  (filter filename-filter)
+                  (map get-absolute-path)
+                  (map io/prog-reader-gz))
+          extract-deps (partial extract-untyped-deps! data/DICT *iv-ids* *sentence-counter* *dep-counter*)
+          freqs (progress/monitor [#(str "\t" @*sentence-counter* " sentences processed") 1000]
+                  (->> files
+                    (mapcat documents)
+                    (mapcat sentences)
+                    (take n)
+                    (utils/pmapcat extract-deps)
+                    (frequencies)))
+          num_deps (*dep-counter*)] ;deref this once to save processings
+        
+      (doseq [f files] (.close f))
+
+      (io/open [:w out io/OUT_PATH
+                :w out-ids (str io/OUT_PATH "-ids")]
+        (io/doing-done "writing to disk"
+            (io/spit-tsv out-ids (seq (*iv-ids*)))
+            (io/spit-tsv out (for [[k v] freqs]
+                               ; flatten vector and get prob in stead of freq
+                               (conj k (/ (double v) num_deps)))))))))

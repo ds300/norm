@@ -34,6 +34,12 @@
       ([elem not_found]
         (@ids elem not_found)))))
 
+(defn counter 
+  ([start_value]  (let [n (atom start_value)]
+                    (fn ([i] (swap! n + i))
+                        ([] @n))))
+  ([] (counter 0)))
+
 (defn indexify 
   ([coll]
     (indexify 0 coll))
@@ -59,4 +65,3 @@
           [f (cons partial things)])
         forms))
     (do ~@body)))
-

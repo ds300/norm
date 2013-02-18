@@ -35,13 +35,12 @@
   (Integer. a))
 
 (defn load-dpb-data [path]
-  (let [[ids deps] (partition-by count )]
     [
-      (into {} (io/parse-tsv (str path "-ids") identity #(Integer.)))
-      (into {} (io/parse-tsv path atoi atoi atoi #(Double.))
-        (for [[g d o s] deps] 
+      (into {} (io/parse-tsv (str path "-ids") identity atoi))
+      (into {} 
+        (for [[g d o s] (io/parse-tsv path atoi atoi atoi #(Double. %))] 
           [[g d o] s]))
-    ]))
+    ])
 
 (defn load- [id]
   (let [path (get-path id)]
