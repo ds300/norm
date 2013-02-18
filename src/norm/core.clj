@@ -66,14 +66,12 @@
     (let [[id outfile & other_args] @ARGS]
       (binding [io/OUT_PATH (if (= ":o" outfile) (data/get-path (keyword id)) outfile)]
         (case (keyword id)
-          :dm-dict (data/load-and-bind [:dict]
-                     (dm-dict/train))
-          :twt-c (data/load-and-bind [:dict]
-                     (twt-c/train))
+          :dm-dict (dm-dict/train!)
+          :twt-c (twt-c/train)
           :nmd (data/load-and-bind [:dict :dm-dict]
                  (nmd/train))
           :dpb (dpb/train!)
-          :tlm (tlm/train)
+          :tlm (tlm/train!)
           :lksm (lksm/train!)
           (fail (str "invalid training file: " id))))))
 })
