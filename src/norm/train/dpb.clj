@@ -88,10 +88,10 @@
                       (pmapcat extract-untyped-deps)
                       (frequencies)))
             num_deps @*dep-counter*] ;deref this once to save processings
-        (with-open [out (clojure.java.io/writer io/OUT_PATH)]
+        (with-open [out (clojure.java.io/writer io/OUT_PATH)
+                    out-ids (clojure.java.io/writer (str io/OUT_PATH "-ids"))]
           (io/doing-done "writing to disk"
-              (io/spit-tsv out @IV_IDS)
-              (.write out "\n")
+              (io/spit-tsv out-ids @IV_IDS)
               (io/spit-tsv out (for [[k v] freqs]
                                  ; flatten vector and get prob in stead of freq
                                  (conj k (/ (double v) num_deps))))))))))

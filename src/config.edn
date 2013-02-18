@@ -32,6 +32,17 @@
     :bias 1.0
     :eps 0.01
     :c 1.0
+    :solver "L2R_LR"
+    ;; solver must be one of the following strings:
+     ; "L2R_LR"
+     ; "L2R_L2LOSS_SVC_DUAL"
+     ; "L2R_L2LOSS_SVC"
+     ; "L2R_L1LOSS_SVC_DUAL"
+     ; "MCSVM_CS"
+     ; "L1R_L2LOSS_SVC"
+     ; "L1R_LR"
+     ; "L2R_LR"
     :num-candidates 1
   }
 }
+

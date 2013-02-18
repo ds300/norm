@@ -60,23 +60,20 @@
     (when posneg (pos-feature-vector-ids [gov_id dep_id off_id])) ; keep track of positive feature vector ids
     (.write tmpout (str (pr-str f) "\n"))))
 
-(defn try-read-string [string]
-  (try (read-string string) (catch Exception e (do (prn "das string be:" string) (throw e)))))
-
 (defn store-features:second-pass! [to-svm-format feature-predicate tmpin tmpout]
   (doseq [line  (->> tmpin
                   line-seq
                   (filter not-empty)
-                  (map try-read-string)
+                  (map read-string)
                   (filter feature-predicate)
                   (map to-svm-format))]
     (.write tmpout line)))
 
 
-
-(defn get-confusion-set [dict dm-dict tlm lex-dist phon-dist n tokens i]
-  (let [get-cs (partial words/raw-confusion-set dict dm-dict lex-dist phon-dist)]
-    (take n (words/lm-ranked-confusion-set tlm get-cs tokens i))))
+(defn confusion-set-getter [dict dm-dict tlm lex-dist phon-dist n]
+  (let [get-cs (memoize (partial words/raw-confusion-set dict dm-dict lex-dist phon-dist))]
+    (fn [tokens i]
+      (take n (words/lm-ranked-confusion-set tlm get-cs tokens i)))))
 
 
 (defn train []
@@ -92,11 +89,11 @@
             pos-feature-vector-ids  (utils/unique-id-getter)
             lex_dist                (config/opt :confusion-sets :lex-dist)
             phon_dist               (config/opt :confusion-sets :phon-dist)
-            num_candidates          (config/opt :train :lksm :num-candidates)]
+            num_candidates          (config/opt :train :lksm :num-candidates)
+            get-confusion-set       (confusion-set-getter data/DICT data/DM-DICT data/TLM lex_dist phon_dist num_candidates)]
         (feature-ids :garbage) ; do this because liblinear doesn't like indices to start at 0
         (feature-ids :dpb-score) ;add this in because it won't get done automatically
-        (utils/let-partial [(get-confusion-set data/DICT data/DM-DICT data/TLM lex_dist phon_dist num_candidates)
-                            (extract-features! data/DICT data/DPB feature-ids iv-ids get-confusion-set)
+        (utils/let-partial [(extract-features! data/DICT data/DPB feature-ids iv-ids get-confusion-set)
                             (legit-feature? pos-feature-vector-ids)
                             (encode-feature-vector (feature-ids :dpb-score))
                             (store-features:first-pass! legit-feature? pos-feature-vector-ids)

@@ -9,7 +9,8 @@
             [norm.train.twt-c :as twt-c]
             [norm.train.nmd :as nmd]
             [norm.train.tlm :as tlm]
-            [norm.train.dpb :as dpb])
+            [norm.train.dpb :as dpb]
+            [norm.train.lksm :as lksm])
   (:gen-class))
 
 (def ARGS (atom nil))
@@ -74,6 +75,7 @@
           :dpb (data/load-and-bind [:dict]
                  (dpb/train))
           :tlm (tlm/train)
+          :lksm (lksm/train)
           (fail (str "invalid training file: " id))))))
 })
 

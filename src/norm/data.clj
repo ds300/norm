@@ -31,14 +31,16 @@
     (get-in @config/OPTS [:data :paths id])
     (str (get-in @config/OPTS [:data :dir]) "/" (name id))))
 
+(defn atoi [a]
+  (Integer. a))
+
 (defn load-dpb-data [path]
-  (let [[ids deps] (partition-by count (io/parse-tsv path))]
+  (let [[ids deps] (partition-by count )]
     [
-      (into {} 
-        (for [[k v] ids] [k (Integer. v)]))
-      (into {}
-        (for [[gov dep off score] deps] 
-          [[(Integer. gov) (Integer. dep) (Integer. off)] (Double. score)]))
+      (into {} (io/parse-tsv (str path "-ids") identity #(Integer.)))
+      (into {} (io/parse-tsv path atoi atoi atoi #(Double.))
+        (for [[g d o s] deps] 
+          [[g d o] s]))
     ]))
 
 (defn load- [id]
