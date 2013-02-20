@@ -1,5 +1,6 @@
 (ns norm.config
-  (:use [clojure.java.io :only (resource as-file)])
+  (:use [clojure.java.io :only (resource as-file)]
+        [norm.utils :only (map-merge)])
   (:gen-class))
 
 (def EX_DIR (->> "config.edn"
@@ -18,10 +19,7 @@
 
 (def ^:dynamic OPTS (atom (load-config (resource "config.edn"))))
 
-(defn- map-merge [m1 m2]
-  (if (and (map? m1) (map? m2))
-    (merge-with map-merge m1 m2)
-    m2))
+
 
 (let [user_config_file (as-file (str EX_DIR "/config.edn"))]
   (when (.isFile user_config_file)

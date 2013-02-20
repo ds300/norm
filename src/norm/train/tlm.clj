@@ -5,7 +5,6 @@
 
 (defn train! []
   (data/verify-readable! :twt-c)
-  (data/verify-writeable! :tlm)
 
   (let [tmp_path (str io/OUT_PATH ".tmp")]
     

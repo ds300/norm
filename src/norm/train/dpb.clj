@@ -57,8 +57,9 @@
   (.getAbsolutePath file))
 
 (defn train! []
+  (data/verify-readable! :dict :nyt)
+
   (data/load-and-bind [:dict]
-    
     (let [*sentence-counter* (utils/counter)
           *dep-counter*      (utils/counter)
           *iv-ids*           (utils/unique-id-getter)

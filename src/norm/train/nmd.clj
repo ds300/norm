@@ -179,6 +179,7 @@
           [(- (ssk oov iv)) oov iv])))))
 
 (defn train! []
+  (data/verify-readable :twt :dict :dm-dict)
   (data/load-and-bind [:dict :dm-dict]
     (let [iv_ids           (into {} (map vector (.words data/DICT) (range)))
           twt_path         (data/get-path :twt)

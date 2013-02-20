@@ -80,12 +80,15 @@
     (fn [args]
       (if (seq args)
         (fail (str "unrecognised args: " args))
-        ((commands "train") ["twt-c"])
-        ((commands "train") ["dm-dict"])
-        ((commands "train") ["nmd"])
-        ((commands "train") ["tlm"])
-        ((commands "train") ["dpb"])
-        ((commands "train") ["lksm"])))
+        (do
+          (data/verify-readable :twt :dict :nyt)
+          (data/verify-writeable :twt-c :dm-dict :nmd :tlm :dpb :lksm)
+          ((commands "train") ["twt-c"])
+          ((commands "train") ["dm-dict"])
+          ((commands "train") ["nmd"])
+          ((commands "train") ["tlm"])
+          ((commands "train") ["dpb"])
+          ((commands "train") ["lksm"]))))
 })
 
 

@@ -110,9 +110,11 @@
         de_ex (clojure.walk/postwalk-replace syms destructuring_expression)]
     `(clojure.core/let [~de_ex ~value] ~@(for [[x y] syms] `(clojure.core/reset! ~x ~y)))))
 
-(clojure.walk/macroexpand-all '(assign! [oov_words iv_trie] (stratify-corpus-words! data/DICT oov_predicate in)))
-(macroexpand '(with-atoms [balls] ))
 
+(defn map-merge [m1 m2]
+  (if (and (map? m1) (map? m2))
+    (merge-with map-merge m1 m2)
+    m2))
 
 (defmacro _>
   ([x] x)

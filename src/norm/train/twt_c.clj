@@ -18,6 +18,8 @@
       (partition-all 1000 lines))))
 
 (defn train! []
+  (data/verify-readable! :dict)
+
   (data/load-and-bind [:dict]
     (io/open [:r in (data/get-path :twt)
               :w out io/OUT_PATH]
