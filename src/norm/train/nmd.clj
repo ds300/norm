@@ -2,6 +2,7 @@
   (:import [uk.ac.susx.mlcl.lib.collect SparseDoubleVector]
            [uk.ac.susx.mlcl.byblo.measures
                          AbstractMIProximity
+                         AbstractProximity
                          Confusion
                          Cosine
                          CosineMi
@@ -22,250 +23,229 @@
             [norm.io :as io]
             [norm.data :as data]
             [norm.trie :as trie]
+            [norm.utils :as utils]
             [norm.progress :as progress]
             [norm.words :as words]))
+
 (set! *warn-on-reflection* true)
-; misc utils
-(defn word-tokens [^String text]
+
+
+(defn word-tokenise [^String text]
   (map first (re-seq #"((?<= )|(?<=^))[a-z][a-z\-']*" (.toLowerCase text))))
 
-(defn pmap-chunked [n f coll]
-  (apply concat
-    (pmap #(map f %) (partition-all n coll))))
+(defn inc-freq! [transient_map k]
+  (assoc! transient_map k (inc (transient_map k 0))))
 
-(def ^:dynamic *counter*)
-
-(defmacro counted [& body]
-  `(binding [*counter* (atom 0)]
-    ~@body))
-
-(def ^:dynamic *min-freq*)
-(def ^:dynamic *min-length*)
-(def ^:dynamic *lex-dist*)
-(def ^:dynamic *phon-dist*)
-(def ^:dynamic *post-rank-cutoff*)
-(def ^:dynamic *n-gram-order*)
-(def ^:dynamic *window-size*)
-(def ^:dynamic *proximity-measure*)
-
-(def IV_IDS (atom {}))
-(defn- iv-id [word] (@IV_IDS word))
-
-(def IV_WORDS (atom (trie/trie)))
-(def OOV_WORDS (atom {}))
-
-(def CTX_REL (atom #{})) ; set of words we need to extract context for
-
-(def CTX_IDS (ref {})) ; ids of context features
-(def CTX_FREQS (ref [])) ; frequencies of context features
+(defn stratify-corpus-words!
+  "returns two maps, the first being oov words observed in lines"
+  [^norm.jvm.Trie DICT oov_predicate in]
+  (loop [[word & remaining] (->> in
+                              line-seq
+                              (filter not-empty)
+                              (utils/pmapcat-chunked 500 word-tokenise))
+          iv_acc (transient {})
+          oov_acc (transient {})]
+    (if word
+      (if (.contains DICT word)
+          (recur remaining (inc-freq! iv_acc word) oov_acc)
+          (recur remaining iv_acc (inc-freq! oov_acc word)))
+      ; else return seq of oov words and trie of iv words
+      [
+        (map first (filter oov_predicate (persistent! oov_acc)))
+        (trie/trie (persistent! iv_acc))
+      ])))
 
 
+(defn get-confusion-set [dm-dict lex_dist phon_dist cutoff-percent iv_trie word]
+  (let [cs (words/raw-confusion-set iv_trie dm-dict lex_dist phon_dist word)
+        n (int (-> (count cs) (/ 100) (* cutoff-percent)))
+        freq #(.tfreq iv_trie %)]
+    (take n (sort-by freq cs))))
 
-(defn- load-data! []
-  ; give IV words unique IDs
-  (io/doing-done "Assigning IV IDs"
-    (swap! IV_IDS into (map vector (.words ^norm.jvm.Trie data/DICT) (range))))
-  ; get unigram frequencies from twt
-  (let [in (io/prog-reader (data/get-path :twt))]
-    ; iterate over frequencies and add words into tries
-    (println "Deriving unigram frequencies from" (data/get-path :twt))
-    (doseq [[word freq] (progress/monitor
-                          [#(str "\t" (.progress in))]
-                          (frequencies (mapcat word-tokens (io/lines-in in))))]
-      (cond
-      ; when word is IV, just add it into IV_WORDS
-        (iv-id word) (swap! IV_WORDS conj [word freq (atom {})])
-      ; when word is OOV, only include it if *min-freq* and *min-length*
-        :else (when (and (<= *min-freq* freq) (<= *min-length* (count word)))
-                (swap! OOV_WORDS conj [word (atom {})]))))))
+(defn generate-confusion-sets! [counter* get-cs oov_words]
+  (let [doit (fn [oov_word] (counter* 1) [oov_word (get-cs oov_word)])]
+    (into {} (pmap doit oov_words))))
+
+(defn get-context-accumulator-map [oov_cs_map]
+  (into {} 
+    (map vector 
+      (into #{} (flatten (seq oov_cs_map)))
+      (repeatedly #(atom {})))))
 
 
-;;;; GENERATING CONFUSIONS SETS ;;;;
-
-
-; tODO change this to use words/raw-confusion-set
-(defn confusion-set [word]
-  ; only exctract IV words that have been observed in twt
-  (let [iv_deref @IV_WORDS ; deref this once to save processings
-        dm_words (filter iv_deref
-                   (mapcat data/DM-DICT
-                      (trie/find-within data/DM-DICT (words/double-metaphone word) *phon-dist*)))
-        iv_words (trie/find-within iv_deref word *lex-dist*)
-        sorted_words (sort-by #(- (trie/freq iv_deref %)) (concat dm_words iv_words))
-        n (int (* *post-rank-cutoff* (/ (count sorted_words) 100)))]
-    (take n sorted_words)))
-
-
-(defn- generate-confusion-set [[word data_atom]]
-  (let [cs (confusion-set word)]
-    (swap! data_atom conj [:confusion-set cs])
-    (swap! CTX_REL into (conj cs word))
-    (swap! *counter* inc)))
-
-(defn- generate-confusion-sets! []
-  (println "Generating confusion sets for OOV words")
-  (binding [*counter* (atom 0)]
-    (progress/monitor [#(str "\t" @*counter* " words processed")]
-      (dorun (pmap-chunked 100 generate-confusion-set @OOV_WORDS)))))
-
-
-;;;; EXTRACTING CONTEXTUAL FEATURES ;;;;
-
-(defn- ctx-id [ctx]
+(defn feature-id! [feature_ids* feature_freqs* feature]
   (or
     ; try to read the id without setting up a transaction first
-    (get-in @CTX_IDS ctx)
+    (get-in @feature_ids* feature)
     ; it's not in there so set up a transaction
     (dosync
       ; it might have been inserted by some other thread before
       ; this transaction got set up so check that first
       (or
-        (get-in @CTX_IDS ctx)
+        (get-in @feature_ids* feature)
         ; its still not in there, so insert it and make a new
-        ; counter atom in CTX_FREQS, then return the id
+        ; counter atom in feature_freqs*, then return the id
         (do
-          (commute CTX_FREQS conj (atom 0))
-          (let [id (count @CTX_IDS)]
-            (alter CTX_IDS assoc-in ctx (count @CTX_IDS))
+          (commute feature_freqs* conj (atom 0))
+          (let [id (count @feature_ids*)]
+            (alter feature_ids* assoc-in feature (count @feature_ids*))
             id))))))
 
-(defn- store-context-features [word ctxs]
-  (doseq [ctxid (map ctx-id ctxs)]
-    (swap! (@CTX_FREQS ctxid) inc)
-    (if-let [data_atom (or (@IV_WORDS word) (@OOV_WORDS word))]
-      (swap! data_atom update-in [:context ctxid] (fnil inc 0)))))
 
-(defn- context-left [grams i]
-  (map
-    into
+(defn context-left [n_gram_order window_size grams i]
+  (map into
     (map (comp vector -) (rest (range)))
-    (reverse (words/context-left grams *window-size* (+ i 1 (- *n-gram-order*))))))
+    (reverse (words/context-left grams window_size (+ i 1 (- n_gram_order))))))
 
-(defn- context-right [grams i]
-  (map
-    into
+(defn context-right [window_size grams i]
+  (map into
     (map vector (rest (range)))
-    (words/context-right grams *window-size* i)))
+    (words/context-right grams window_size i)))
 
-(defn- context [grams i]
-  (filter (partial every? identity)
-    (concat
-      (context-left grams i)
-      (context-right grams i))))
+(defn context [n_gram_order window_size grams i]
+  (concat
+    (context-left n_gram_order window_size grams i)
+    (context-right window_size grams i)))
 
-(defn- extract-context [line]
+(def no-nils? (partial every? identity))
+
+(defn store-context! [n_gram_order window_size iv_ids ctx-acc* feature-freqs* *feature-id* line]
   (let [tokens (words/tokenise (.toLowerCase line))
-        ngrams (words/n-grams *n-gram-order* (map iv-id tokens))]
+        ngrams (words/n-grams n_gram_order (map iv_ids tokens))]
     (doseq [[word i] (map vector tokens (range))]
       ; only extract context for relevant words
-      (when (@CTX_REL word)
-        (store-context-features word (context ngrams i))))))
+      (when (ctx-acc* word)
+        (doseq [feature (->> (context n_gram_order window_size ngrams i)
+                          (filter no-nils?) ; make sure all context words are IV
+                          (map *feature-id*))]
+          (swap! (feature-freqs* feature) inc)
+          (swap! (ctx-acc* word) update-in [feature] (fnil inc 0)))))))
 
-(defn- extract-all-context! []
-  (println "Extracting contextual features...")
-  (let [in (io/prog-reader (data/get-path :twt))]
-    (progress/monitor [#(str "\t" (.progress in))]
-      (dorun (pmap-chunked 200 extract-context (io/lines-in in))))))
+(defn extract-all-context! [n_gram_order window_size iv_ids oov_cs_map in]
+  (let [ctx-acc* (get-context-accumulator-map oov_cs_map)
+        feature-freqs* (ref [])
+        id!_  (partial feature-id! (ref {}) feature-freqs*)
+        store!_ (partial store-context! n_gram_order window_size iv_ids ctx-acc* feature-freqs* id!_)]
+    ;; do the actual computation
+    (dorun (utils/pmap-chunked 20 store!_ (filter not-empty (line-seq in))))
+    ;; return still-atmoised data structures
+    [ctx-acc* @feature-freqs*]))
 
-;;;; SDV GENERATION ;;;;
-
-(defn- sdv [freq_dist]
+(defn to-sdv [freq_dist cardinality]
   (if (zero? (count freq_dist))
-    (SparseDoubleVector. (count @CTX_IDS) 0)
+    (SparseDoubleVector. cardinality 0)
     (let [^double sum  (reduce + (vals freq_dist))
           ks   (int-array (sort (keys freq_dist)))
           vs   (double-array (map freq_dist ks))
-          card (count @CTX_IDS)
+          card cardinality
           size (count ks)]
       (SparseDoubleVector. ks vs card size))))
 
-(defn make-sdv [data_atom]
-  (swap! data_atom update-in [:context] (fnil sdv {}))
-  (swap! *counter* inc))
-
-(defn make-sdvs! []
-  (println "Creating SparseDoubleVectors .. ")
-  (binding [*counter* (atom 0)]
-    (progress/monitor [#(str @*counter* " words processed")]
-      (dorun 
-        (pmap-chunked 100 make-sdv
-          (concat
-            (vals @OOV_WORDS)
-            (filter identity (map @IV_WORDS @CTX_REL))))))))
-
-;;;; PAIR GENERATION ;;;;
-
-(def PAIRS (atom []))
-
-(defn- get-measure [type]
-  (let [measure (eval (read-string (str "(uk.ac.susx.mlcl.byblo.measures."type".)")))]
-    (when (instance? AbstractMIProximity measure)
-      (let [feature_frequencies (double-array (map deref @CTX_FREQS))]
-        (doto measure
-          (.setFeatureFrequencies feature_frequencies)
-          (.setFeatureFrequencySum (reduce + feature_frequencies)))))
-    measure))
+(defn make-sdvs! [counter* cardinality all_context*]
+  (doall
+    (pmap #(do (swap! % to-sdv cardinality) (counter* 1))
+      (vals all_context*))))
 
 
 
-(defn- get-pair [[oov_word data_atom]]
-  (let [{cs :confusion-set oov_ctx :context} @data_atom]
-    (let [left_result (.left *proximity-measure* oov_ctx)
+(defn get-pair [measure all_context* oov_word confusion_set]
+  (let [oov_context @(all_context* oov_word)
+        left_result (.left measure oov_context)
+        candidates  (for [iv_word confusion_set]
+                                (let [iv_context@(all_context* iv_word)
+                                      right_result (.right measure iv_context)
+                                      shared_result (.shared ^AbstractProximity measure oov_context iv_context)
+                                      combined (.combine measure shared_result left_result right_result)]
+                                  [iv_word combined]))
+        [top_candidate _] (first (sort-by second candidates))]
+    (when top_candidate
+      [oov_word top_candidate])))
 
-          candidates (loop [acc [] [iv & others] cs]
-                       (if iv
-                        ;; these checks should be unnecessary
-                         (if-let [iv_ctx (and (@IV_WORDS iv) (:context @(@IV_WORDS iv)))]
-                           (recur
-                             (conj acc [iv
-                                        (.combine *proximity-measure*
-                                          (.shared *proximity-measure* oov_ctx iv_ctx)
-                                          left_result
-                                          (.right *proximity-measure* iv_ctx))])
-                             others)
-                           (recur acc others))
-                         acc))]
-      (swap! *counter* inc)
-      (when (some identity candidates)
-        [oov_word (first (first (sort-by second candidates)))]))))
+(defn get-pairs! [counter* oov_cs_map all_context* measure]
+  (doall
+    (filter identity
+      (pmap 
+        (fn [[oov_word confusion_set]]
+          (counter* 1)
+          (get-pair measure all_context* oov_word confusion_set))
+        oov_cs_map))))
 
-(defn- make-pairs! []
-  (println "Generating contextually similar (OOV, IV) pairs")
-  (binding [*counter* (atom 0)]
-    (progress/monitor [#(str "\t" @*counter* " oov words processed")]
-      (swap! PAIRS into (filter identity (pmap-chunked 100 get-pair @OOV_WORDS))))))
+(defn rank-pairs [pairs]
+  (let [kernel (cc.mallet.types.StringKernel.)
+        ssk (fn [^String s ^String t] (.K kernel s t))]
+    (map rest
+      (sort
+        (for [[oov iv] pairs]
+          [(- (ssk oov iv)) oov iv])))))
 
-;;;; PAIR RANKING ;;;;
+(defn train! []
+  (data/load-and-bind [:dict :dm-dict]
+    (let [iv_ids           (into {} (map vector (.words data/DICT) (range)))
+          twt_path         (data/get-path :twt)
+          lex_dist         (config/opt :confusion-sets :lex-dist)
+          phon_dist        (config/opt :confusion-sets :phon-dist)
+          post_rank_cutoff (config/opt :train :nmd :post-rank-cutoff)
+          n_gram_order     (config/opt :train :nmd :n-gram-order)
+          window_size      (config/opt :train :nmd :window-size)
+          pair_rank_cutoff (config/opt :train :nmd :pair-rank-cutoff)
+          min_freq         (config/opt :train :nmd :min-freq)
+          min_length       (config/opt :train :nmd :min-length)
+          measure_type     (config/opt :train :nmd :measure)
+          oov_predicate    (fn [[word freq]]
+                             (and
+                               (<= min_freq freq)
+                               (<= min_length (count word))))]
 
-(def ssk (let [kernel (cc.mallet.types.StringKernel.)]
-  (fn [^String s1 ^String s2] (.K kernel s1 s2))))
+      (utils/with-atoms [oov_words iv_trie oov_cs_map all_context* feature_freqs pairs]
+        ; get our words from the corpus in the relevat formats
+        (io/open [:r in twt_path]
+          (println "Counting words...")
+          (progress/monitor [#(str "\t" (.progress in))]
+            (utils/assign! [oov_words iv_trie] (stratify-corpus-words! data/DICT oov_predicate in))))
 
-(defn- rank-pairs! []
-  (io/doing-done "Ranking pairs by string kernel"
-    (swap! PAIRS #(map (fn [[oov iv]] [(- (ssk oov iv)) oov iv]) %))
-    (swap! PAIRS sort)
-    (swap! PAIRS #(map (partial drop 1) %))
-    ))
+        (let [counter* (utils/counter)]
+          (println "Generating confusion sets...")
+          (progress/monitor [#(str "\t" (counter*))]
+            (reset! oov_cs_map
+              (generate-confusion-sets!
+                counter*
+                (partial get-confusion-set data/DM-DICT lex_dist phon_dist post_rank_cutoff @iv_trie)
+                @oov_words))))
 
+        ;; we don't need these anymore
+        (reset! oov_words nil)
+        (reset! iv_trie nil)
+        
+        (io/open [:r in twt_path]
+          (println "Extracting all contextual features...")
+          (progress/monitor [#(str "\t" (.progress in)) 2000]
+            (utils/assign! [all_context* feature_freqs]
+              (extract-all-context! n_gram_order window_size iv_ids @oov_cs_map in))))
 
+        (let [counter* (utils/counter)]
+          (println "Converting feature frequency distributions to sparse vectors...")
+          (progress/monitor [#(str "\t" (counter*))]
+            (make-sdvs! counter* (count @feature_freqs) @all_context*)))
 
-(defn train []
-  (binding [*min-freq* (config/opt :train :nmd :min-freq)
-            *min-length* (config/opt :train :nmd :min-length)
-            *lex-dist* (config/opt :confusion-sets :lex-dist)
-            *phon-dist* (config/opt :confusion-sets :phon-dist)
-            *post-rank-cutoff* (config/opt :train :nmd :post-rank-cutoff)
-            *n-gram-order* (config/opt :train :nmd :n-gram-order)
-            *window-size* (config/opt :train :nmd :window-size)]
-    (load-data!)
-    (generate-confusion-sets!)
-    (extract-all-context!)
-    (make-sdvs!)
-    (binding [*proximity-measure* (get-measure (config/opt :train :nmd :measure))]
-      (make-pairs!))
-    (rank-pairs!)
-    (with-open [out (clojure.java.io/writer io/OUT_PATH)]
-      (io/spit-tsv out (take (config/opt :train :nmd :pair-rank-cutoff) @PAIRS)))
-    
-  ))
+        (let [counter* (utils/counter)
+              measure (eval (read-string (str "(uk.ac.susx.mlcl.byblo.measures."measure_type".)")))]
+
+          (when (instance? AbstractMIProximity measure)
+            (reset! feature_freqs (double-array (map deref @feature_freqs)))
+            (doto measure
+              (.setFeatureFrequencies @feature_freqs)
+              (.setFeatureFrequencySum (reduce + @feature_freqs))))
+
+          (println "Deriving contextually similar pairs...")
+          (progress/monitor [#(str "\t" (counter*))]
+            (reset! pairs (get-pairs! counter* @oov_cs_map @all_context* measure))))
+
+        ;; we don't need these anymore
+        (reset! all_context* nil)
+        (reset! oov_cs_map nil)
+        (reset! feature_freqs nil)
+
+        (println "Ranking pairs, applying cutoff, and writing to disk...")
+        (io/open [:w out io/OUT_PATH]
+          (io/spit-tsv out (take pair_rank_cutoff (rank-pairs @pairs))))))))
 

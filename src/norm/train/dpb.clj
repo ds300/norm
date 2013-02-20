@@ -58,7 +58,7 @@
 
 (defn train! []
   (data/load-and-bind [:dict]
-    (println "Extracting dependencies from up to" n "sentences in nyt corpus...")
+    
     (let [*sentence-counter* (utils/counter)
           *dep-counter*      (utils/counter)
           *iv-ids*           (utils/unique-id-getter)
@@ -73,13 +73,15 @@
 
           extract-deps!_     (partial extract-untyped-deps! data/DICT *iv-ids* *sentence-counter* *dep-counter*)
           
-          freqs              (progress/monitor [#(str "\t" @*sentence-counter* " sentences processed") 1000]
-                               (->> files
-                                 (mapcat documents)
-                                 (mapcat sentences)
-                                 (take n)
-                                 (utils/pmapcat extract-deps!_)
-                                 (frequencies)))
+          freqs              (do 
+                               (println "Extracting dependencies from up to" n "sentences in nyt corpus...")
+                               (progress/monitor [#(str "\t" @*sentence-counter* " sentences processed") 1000]
+                                 (->> files
+                                   (mapcat documents)
+                                   (mapcat sentences)
+                                   (take n)
+                                   (utils/pmapcat extract-deps!_)
+                                   (frequencies))))
           
           num_deps           (*dep-counter*)] ;deref this once to save processings
         

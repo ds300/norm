@@ -62,18 +62,30 @@
   ;     (when (= outf "json") (.write out "]"))
   ;     (shutdown-agents)
   ;     (.close out)))
-  "train" (fn []
-    (let [[id outfile & other_args] @ARGS]
-      (binding [io/OUT_PATH (if (= ":o" outfile) (data/get-path (keyword id)) outfile)]
-        (case (keyword id)
-          :dm-dict (dm-dict/train!)
-          :twt-c (twt-c/train)
-          :nmd (data/load-and-bind [:dict :dm-dict]
-                 (nmd/train))
-          :dpb (dpb/train!)
-          :tlm (tlm/train!)
-          :lksm (lksm/train!)
-          (fail (str "invalid training file: " id))))))
+  "train" 
+    (fn [args]
+      (let [[id & [outpath & extra]] args]
+        (cond
+          extra
+            (fail (str "unrecognised args: " extra))
+          (not id)
+            (fail "No training file id given.")
+          (not (#{"dm-dict" "twt-c" "nmd" "dpb" "tlm" "lksm"} id))
+            (fail (str "invalid training file: " id))
+          ;else bind the global output path and train
+            (binding [io/OUT_PATH (or outpath (data/get-path (keyword id)))]
+              ((symbol (str "train." id "/train!")))))))
+
+  "bootstrap"
+    (fn [args]
+      (if (seq args)
+        (fail (str "unrecognised args: " args))
+        ((commands "train") ["twt-c"])
+        ((commands "train") ["dm-dict"])
+        ((commands "train") ["nmd"])
+        ((commands "train") ["tlm"])
+        ((commands "train") ["dpb"])
+        ((commands "train") ["lksm"])))
 })
 
 

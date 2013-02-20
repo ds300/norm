@@ -56,6 +56,32 @@
                (fn [w1 w2 offset]
                  (deps [(ids w1) (ids w2) offset] 0)))))))
 
+(defn can-read? [path]
+  (.canRead (java.io.File. path)))
+
+(defn can-write!? [path]
+  (try (let [f (java.io.File. path)]
+         (io/open [:w out f] (.write out "hello\n"))
+         (.delete f)
+         true)
+    (catch IOException e (do false))))
+
+(defn- verify-paths! [fail_header pred ids]
+  (when-let [bad_ids (seq (filter (comp not pred get-path) ids))] 
+    (println fail_header)
+    (doseq [p (map get-path ids)]
+      (println "\t" p))
+    (shutdown-agents)
+    (System/exit(1))))
+
+(defn verify-readable! [& ids]
+  (verify-paths "Unable to read from:" can-read? ids))
+
+(defn verify-writeable! [& ids]
+  (verify-paths "Unable to write to:" can-write!? ids))
+
+
+
 (defmacro load-and-bind [ids & body]
   `(clojure.core/binding ~(vec (mapcat (fn [id] [(symbol (str "norm.data/" (.toUpperCase (name id)))) `(norm.data/load- ~id)]) ids) )
      (do ~@body)))

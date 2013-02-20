@@ -1,23 +1,20 @@
 (ns norm.words
-  (:require [norm.trie :as trie])
-  (:use [clojure.string :only (join replace lower-case)]))
+  (:require [norm.trie :as trie]
+            [clojure.string :as str]))
 
 (def double-metaphone
   (let [dm (org.apache.commons.codec.language.DoubleMetaphone.)]
     (fn [^String string]
       (.doubleMetaphone dm
-        (clojure.string/replace string #"(.)\1\1+" "$1$1")))))
+        (str/replace string #"(.)\1\1+" "$1$1")))))
 
 (defn tokenise [^String text]
   (into [] (cmu.arktweetnlp.Twokenize/tokenizeRawTweetText text)))
 
-(def tokenise-lower (comp tokenise lower-case))
-
-
-
+(def tokenise-lower (comp tokenise str/lower-case))
 
 (defn remove-punct-repetition [^String line]
-  (replace line #"(\p{Punct})\1\1\1+" "$1$1$1"))
+  (str/replace line #"(\p{Punct})\1\1\1+" "$1$1$1"))
 
 (defn n-grams
   "Returns a vector of the n-grams in the given sequence.

@@ -91,11 +91,11 @@
             phon_dist                 (config/opt :confusion-sets :phon-dist)
             num_candidates            (config/opt :train :lksm :num-candidates)
             get-confusion-set         (confusion-set-getter data/DICT data/DM-DICT data/TLM lex_dist phon_dist num_candidates)
-            extract-feats!_           (partial extract-features data/DICT data/DPB feature-ids (utils/unique-id-getter) get-confusion-set)
+            extract-feats!_           (partial extract-features! data/DICT data/DPB *feature-ids* (utils/unique-id-getter) get-confusion-set)
             legit-feat?_              (partial legit-feature? *pos-feature-vector-ids*)
             encode-feat_              (partial encode-feature-vector (*feature-ids* :dpb-score))
             store-feats-1!_           (partial store-features:first-pass! legit-feat?_ *pos-feature-vector-ids*)
-            store-feats-2!_           (partial store-features:second-pass! encode-feat legit-feat?_)]
+            store-feats-2!_           (partial store-features:second-pass! encode-feat_ legit-feat?_)]
 
         (println "Extracting feature-vectors: first pass")
         (io/open [:r in (data/get-path :twt-c)

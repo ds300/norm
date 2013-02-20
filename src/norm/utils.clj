@@ -43,6 +43,15 @@
                         ([] @n))))
   ([] (counter 0)))
 
+(defn map-counter
+  ([start_value]  (let [m (atom {})]
+                    (fn ([] @m)
+                        ([k] (@m k))
+                        ([k i] (swap! m update-in [k] #(+ i (or % start_value)))))))
+  ([] (map-counter 0)))
+
+(defn update-with [f m] (into {} (for [[k v] m] [k (f v)])))
+
 (defn indexify 
   ([coll]
     (indexify 0 coll))
@@ -68,3 +77,61 @@
           [f (cons partial things)])
         forms))
     (do ~@body)))
+
+(defmacro pfor [bindings & body]
+  (case (count (take 2 bindings))
+    0 `(do ~@body)
+    2 `(clojure.core/pmap
+        (clojure.core/fn [~(first bindings)]
+          (pfor [~@(drop 2 bindings)] ~@body))
+        ~(second bindings))
+    :else (throw (IllegalArgumentException. "pfor requries an even number of args."))))
+
+(defmacro with-atoms [syms & body]
+  `(clojure.core/let [~@(mapcat vector syms (repeat `(clojure.core/atom nil)))]
+    ~@body))
+
+
+(defn flat [coll]
+  (if (or (map? coll) (sequential? coll))
+    (when-let [item (first coll)]
+      (lazy-seq
+        (if (or (map? item) (sequential? item))
+          (concat (flat item) (flat (rest coll)))
+          (cons item (flat (rest coll))))))
+    coll))
+
+(defmacro assign! [destructuring_expression value]
+  (let [syms  (into {}
+                (map vector
+                  (filter symbol?
+                    (flat destructuring_expression))
+                  (repeatedly gensym)))
+        de_ex (clojure.walk/postwalk-replace syms destructuring_expression)]
+    `(clojure.core/let [~de_ex ~value] ~@(for [[x y] syms] `(clojure.core/reset! ~x ~y)))))
+
+(clojure.walk/macroexpand-all '(assign! [oov_words iv_trie] (stratify-corpus-words! data/DICT oov_predicate in)))
+(macroexpand '(with-atoms [balls] ))
+
+
+(defmacro _>
+  ([x] x)
+  ([x form] (if (seq? form)
+              (with-meta (let [res (clojure.walk/postwalk-replace {'_ x} form)]
+                            (if (= res form)
+                              `(~(first form) ~x ~@(next form))
+                              res))
+                         (meta form))
+              (list form x)))
+  ([x form & more] `(_> (_> ~x ~form) ~@more)))
+
+(defmacro _>>
+  ([x] x)
+  ([x form] (if (seq? form)
+              (with-meta (let [res (clojure.walk/postwalk-replace {'_ x} form)]
+                            (if (= res form)
+                              `(~@form ~x)
+                              res))
+                         (meta form))
+              (list form x)))
+  ([x form & more] `(_>> (_>> ~x ~form) ~@more)))
