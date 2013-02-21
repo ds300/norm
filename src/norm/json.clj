@@ -4,7 +4,9 @@
 
 
 
-(defn char-seq [^java.io.Reader rdr]
+(defn char-seq
+  "Returns a lazy sequence of the characters from rdr."
+  [^java.io.Reader rdr]
   (let [c (.read rdr)]
     (if (>= c 0)
       (cons (char c) (lazy-seq (char-seq rdr)))
@@ -16,7 +18,9 @@
 
 (def NUM_CHARS #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9 \. \e \E})
 
-(defn- parse-number [cs]
+(defn parse-number
+  "Tries to parse a json-style number from a char seq."
+  [cs]
   (let [[numchars remaining_chars] (split-with NUM_CHARS cs)
          dec? (some #{\e \E \.} numchars)
          numstr (apply str numchars)
@@ -25,7 +29,9 @@
                (Long/valueOf numstr))]
     [num remaining_chars]))
 
-(defn- parse-string [[c d & cs] ^StringBuilder acc]
+(defn parse-string
+  "tries to parse a json string from a char seq."
+  [[c d & cs] ^StringBuilder acc]
   (cond
     (= c \")
       [(str acc) (cons d cs)]
@@ -49,7 +55,9 @@
       (do (.append acc c) (recur (cons d cs) acc))))
 
 
-(defn- tokens [[c & cs]]
+(defn tokens
+  "Attempts to corece the char seq to a token seq."
+  [[c & cs]]
   (when c
     (cond
       (Character/isWhitespace c)
@@ -70,6 +78,8 @@
         (cons ["val" false] (lazy-seq (tokens (drop 4 cs))))
       :else (throw (Exception. (str "Bad character"))))))
 
+
+; this is the recursive descent bit.
 (declare parse-list)
 (declare parse-object)
 

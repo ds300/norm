@@ -11,20 +11,29 @@
 
 (def join-tokens #(apply str (interpose " " %)))
 
-(defn prog-reader [filename]
+(defn prog-reader
+  "Progress tracking file reader. call (.progress ptfr)"
+  [filename]
   (norm.jvm.ProgressTrackingBufferedFileReader/make filename))
 
-(defn prog-reader-gz [filename]
+(defn prog-reader-gz
+  "Progress tracking gzip file reader."
+  [filename]
   (norm.jvm.ProgressTrackingBufferedFileReader/makeGzip filename))
 
-(defmacro doing-done [msg & body]
+(defmacro doing-done
+  "Prints msg and then \"... \", executes body,
+  then prints \"done!\""
+  [msg & body]
   `(do 
     (let [result# (do (print ~msg "... ")
     (.flush *out*) ~@body)]
       (println "done!")
       result#)))
 
-(defn writer-gz [filename]
+(defn writer-gz
+  "Creates a gzip file writer for the given path"
+  [filename]
   (-> filename
     (java.io.FileOutputStream.)
     (java.util.zip.GZIPOutputStream.)
@@ -40,17 +49,26 @@
     (cons line (lazy-seq (line-seq-with-close rdr)))
     (.close rdr)))
 
-(defn lines-in [filename]
+(defn lines-in
+  "Returns a lazy seq of the lines in the specified file.
+  closes the file when all lines have been read."
+  [filename]
   (line-seq-with-close (jio/reader filename)))
 
 (defn by-lines
   "Returns a lazy seq of func applied to the lines in the specified file,
-  ignoring blank lines"
+  ignoring blank lines. closes the file when all lines have been read."
   [filename func]
   (map func (filter not-empty (lines-in filename))))
 
 
-(defn parse-tsv [filename & funcs]
+(defn parse-tsv
+  "takes lines from filename, splits them on \\t,
+  then applies funcs to them. i.e. with file:
+       hello\t3
+  calling (parse-tsv filename identity #(Integer. ))
+  yields ([\"hello\" 3])"
+  [filename & funcs]
   (by-lines filename
     (fn [line]
       (mapv
@@ -58,7 +76,10 @@
         (concat funcs (repeat identity))
         (clojure.string/split line #"\t")))))
 
-(defn spit-tsv [out vecs]
+(defn spit-tsv
+  "Takes a writer and a collection of seqs, and prints
+  the contents of those seqs separated by tabs on separate lines."
+  [out vecs]
   (doseq [vec vecs]
     (.write out (apply str (interpose "\t" vec)))
     (.write out "\n")))
@@ -94,7 +115,10 @@
   [^java.io.BufferedReader in]
   (map consume-json (norm.json/objects-in in)))
 
-(defn get-stream [format in]
+(defn get-stream
+  "Returns a lazy seq of tweet objects from the given input stream
+  in the given format."
+  [format in]
   (({"raw" raw-seq, "tkn" tkn-seq, "json" json-seq} format) in))
 
 (def encoders
@@ -107,7 +131,15 @@
   }
 )
 
-(defn open- [mode f]
+(defn open-
+  "Returns a reader or writer, depending on the specified mode. f can
+  be either a path string or a java.io.File object. 
+  Valid modes are:
+    :w (buffered writer)
+    :wz (gzip writer)
+    :r (progress tracking buffered reader)
+    :rz (progress tracking gzip reader)"
+  [mode f]
   (let [path (if (instance? java.io.File f) (.getAbsolutePath f) f)]
     (case mode
       :w  (clojure.java.io/writer path)
@@ -116,6 +148,11 @@
       :rz (prog-reader-gz path))))
 
 (defmacro open
+  "binds readers or writers to names. bindings are triples
+  of the form mode, name, file/path.
+  e.g. (open [:r in some_path]) 
+  is equal to (let [in (open- :r some_path)])
+  Its much less verbose when you're opening multiple files."
   [bindings & body]
   (cond
     (= 0 (count bindings))

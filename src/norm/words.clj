@@ -37,12 +37,6 @@
     (min (+ i 1 window_size) (count coll))))
 
 
-(defn ngram-context-left [grams n window_size i]
-  (context-left grams window_size (+ i 1 (- n))))
-
-(defn ngram-context-right [grams n window_size i]
-  (context-right grams window_size i))
-
 
 (defn raw-confusion-set [dict dm-dict lex-dist phon-dist word]
   (into []

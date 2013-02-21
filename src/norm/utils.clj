@@ -93,7 +93,9 @@
     ~@body))
 
 
-(defn flat [coll]
+(defn flat
+  "like flatten but flattens maps too."
+  [coll]
   (if (or (map? coll) (sequential? coll))
     (when-let [item (first coll)]
       (lazy-seq

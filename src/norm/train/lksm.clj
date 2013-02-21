@@ -8,19 +8,32 @@
             [norm.words :as words]
             [norm.utils :as utils]))
 
-(defn extract-positive-features [DICT tokens i]
+(defn extract-positive-features
+  "returns contextual features for the token at i in tokens.
+  Such features take the form [true governor dependent offset]
+  Where dependent is the token at i in tokens, and governer is
+  the token at i + offset in tokens."
+  [DICT tokens i]
   (let [dependent (tokens i)
         lctx (map vector (iterate dec -1) (reverse (words/context-left tokens 3 i)))
         rctx (map vector (iterate inc 1) (words/context-right tokens 3 i))]
     (for [[offset governor] (filter #(.contains DICT (last %)) (concat lctx rctx))]
       [true governor dependent offset])))
 
-(defn derive-negative-features [positive_features confusion_set]
+(defn derive-negative-features
+  "Takes some positive features and a confusion set for a particular
+  word, and returns copies of the positive features where the first item
+  has been changed from true to false, and the word has been replaced
+  by those in its confusion set"
+  [positive_features confusion_set]
   (for [[_ gov dep off] positive_features word confusion_set]
     [false gov word off]))
 
 (defn extract-features!
-  "get-cs = (fn [tokens index] confusion_set)"
+  "Extracts features for the given token vector, where feature-ids* is
+  a function that returns a unique id for features, iv-ids* is a function
+  which returns unique ids for iv words, and get-confusion-set is a function
+  which takes a token list and an index and returns an lm-ranked confusion set."
   [DICT DPB feature-ids* iv-ids* get-confusion-set tokens]
   (filter identity
     (apply concat
@@ -48,19 +61,29 @@
     posneg
     (pos-feature-vector-ids* [gov_id dep_id off_id] false)))
 
-(defn encode-feature-vector [dpb-score-feature-id [posneg gov_id dep_id off_id score]]
+(defn encode-feature-vector
+  "takes a feature vector in the format used in this program
+  and converts it to a string representation of the format used
+  by libsvm"
+  [dpb-score-feature-id [posneg gov_id dep_id off_id score]]
   (apply str 
     (if posneg 1 0) " " 
     dpb-score-feature-id ":" score " "
     (apply str (flatten (interpose " " (sort [[gov_id ":1"] [dep_id ":1"] [off_id ":1"]]))))
     "\n"))
 
-(defn store-features:first-pass! [feature-predicate pos-feature-vector-ids* tmpout feats]
+(defn store-features:first-pass!
+  "Takes a seq of features and writes them to tmpout"
+  [feature-predicate pos-feature-vector-ids* tmpout feats]
   (doseq [[posneg gov_id dep_id off_id score :as f] (filter feature-predicate feats)]
     (when posneg (pos-feature-vector-ids* [gov_id dep_id off_id])) ; keep track of positive feature vector ids
     (.write tmpout (str (pr-str f) "\n"))))
 
-(defn store-features:second-pass! [to-svm-format feature-predicate tmpin tmpout]
+(defn store-features:second-pass!
+  "takes the features produced in the first pass and filters
+  out cases where negative feature vectors have already been seen
+  as positive ones. Writes them to tmpout in libsvm format."
+  [to-svm-format feature-predicate tmpin tmpout]
   (doseq [line  (->> tmpin
                   line-seq
                   (filter not-empty)
@@ -70,7 +93,11 @@
     (.write tmpout line)))
 
 
-(defn confusion-set-getter [dict dm-dict tlm lex-dist phon-dist n]
+(defn confusion-set-getter
+  "Returns a function which takes a list of tokens and an index,
+  and returns an lm-ranked confusion set with the settings specified
+  by the arguments."
+  [dict dm-dict tlm lex-dist phon-dist n]
   (let [get-cs (memoize (partial words/raw-confusion-set dict dm-dict lex-dist phon-dist))]
     (fn [tokens i]
       (take n (words/lm-ranked-confusion-set tlm get-cs tokens i)))))
@@ -81,19 +108,21 @@
 
   (let [tmp1_path (str io/OUT_PATH ".tmp1")
         tmp2_path (str io/OUT_PATH ".tmp2")
-        ids_path  (str io/OUT_PATH "-ids")
+        feature_ids_path  (str io/OUT_PATH "-f-ids")
+        iv_ids_path       (str io/OUT_PATH "-iv-ids")
         bias      (config/opt :train :lksm :bias)
         eps       (config/opt :train :lksm :eps)
         c         (config/opt :train :lksm :c)
         solver    (eval (symbol (str "de.bwaldvogel.liblinear.SolverType/" (.toUpperCase (config/opt :train :lksm :solver)))))]
     (data/load-and-bind [:dict :dm-dict :tlm :dpb]
-      (let [feature-ids*             (utils/unique-id-getter 1)
-            pos-feature-vector-ids*  (utils/unique-id-getter)
+      (let [feature-ids*              (utils/unique-id-getter 1)
+            pos-feature-vector-ids*   (utils/unique-id-getter)
+            iv-ids*                   (utils/unique-id-getter)
             lex_dist                  (config/opt :confusion-sets :lex-dist)
             phon_dist                 (config/opt :confusion-sets :phon-dist)
             num_candidates            (config/opt :train :lksm :num-candidates)
             get-confusion-set         (confusion-set-getter data/DICT data/DM-DICT data/TLM lex_dist phon_dist num_candidates)
-            extract-feats!_           (partial extract-features! data/DICT data/DPB feature-ids* (utils/unique-id-getter) get-confusion-set)
+            extract-feats!_           (partial extract-features! data/DICT data/DPB feature-ids* iv-ids* get-confusion-set)
             legit-feat?_              (partial legit-feature? pos-feature-vector-ids*)
             encode-feat_              (partial encode-feature-vector (feature-ids* :dpb-score))
             store-feats-1!_           (partial store-features:first-pass! legit-feat?_ pos-feature-vector-ids*)
@@ -110,9 +139,13 @@
               (utils/pmapcat extract-feats!_)
               (store-feats-1!_ out))))
 
-        (println "Storing feature-ids")
-        (io/open [:w out ids_path]
-          (io/spit-tsv out (seq (feature-ids*))))
+        (io/doing-done "Storing feature-ids"
+          (io/open [:w out feature_ids_path]
+            (io/spit-tsv out (seq (feature-ids*)))))
+
+        (io/doing-done "Storing iv-ids"
+          (io/open [:w out iv_ids_path]
+            (io/spit-tsv out (seq (iv-ids*)))))
         
         (println "Extracting feature-vectors: second pass")
         (io/open [:r in tmp1_path
