@@ -3,14 +3,15 @@
             [clojure.tools.cli :as cli]
             [clojure.java.io :as jio]
             [norm.trie :as trie]
+            [norm.clean :as clean]
             [norm.data :as data]
             [norm.io :as io]
-            [norm.train.dm-dict :as dm-dict]
-            [norm.train.twt-c :as twt-c]
-            [norm.train.nmd :as nmd]
-            [norm.train.tlm :as tlm]
-            [norm.train.dpb :as dpb]
-            [norm.train.lksm :as lksm])
+            [norm.train.nmd]
+            [norm.train.twt-c]
+            [norm.train.lksm]
+            [norm.train.dpb]
+            [norm.train.dm-dict]
+            [norm.train.tlm])
   (:gen-class))
 
 (def ARGS (atom nil))
@@ -72,23 +73,31 @@
             (fail "No training file id given.")
           (not (#{"dm-dict" "twt-c" "nmd" "dpb" "tlm" "lksm"} id))
             (fail (str "invalid training file: " id))
-          ;else bind the global output path and train
+          :else ;bind the global output path and train
             (binding [io/OUT_PATH (or outpath (data/get-path (keyword id)))]
-              ((symbol (str "train." id "/train!")))))))
+              ((eval (symbol (str  "norm.train."id "/train!"))))))))
 
   "bootstrap"
     (fn [args]
       (if (seq args)
         (fail (str "unrecognised args: " args))
         (do
-          (data/verify-readable :twt :dict :nyt)
-          (data/verify-writeable :twt-c :dm-dict :nmd :tlm :dpb :lksm)
+          (data/verify-readable! :twt :dict :nyt)
+          (data/verify-writeable! :twt-c :dm-dict :nmd :tlm :dpb :lksm)
           ((commands "train") ["twt-c"])
           ((commands "train") ["dm-dict"])
           ((commands "train") ["nmd"])
           ((commands "train") ["tlm"])
           ((commands "train") ["dpb"])
           ((commands "train") ["lksm"]))))
+
+  "clean"
+    (fn [args]
+      (if (< (count args) 3)
+        (fail "clean requires input tweets,
+               output destination, and at least
+               one filter operation")
+        (apply clean/clean args)))
 })
 
 
@@ -121,7 +130,7 @@
 
     ; now decide which command to dispatch to
     (if-let [command-fn (commands (first @ARGS))]
-      (do (swap! ARGS rest) (command-fn))
+      (do (swap! ARGS rest) (command-fn @ARGS))
       (fail (str "Unrecognised command: " (first @ARGS))))
 
 

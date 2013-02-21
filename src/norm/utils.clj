@@ -1,4 +1,5 @@
-(ns norm.utils)
+(ns norm.utils
+  (:require [clojure.walk]))
 
 (defn pmap-chunked [n f coll]
   (apply concat 
@@ -116,24 +117,3 @@
     (merge-with map-merge m1 m2)
     m2))
 
-(defmacro _>
-  ([x] x)
-  ([x form] (if (seq? form)
-              (with-meta (let [res (clojure.walk/postwalk-replace {'_ x} form)]
-                            (if (= res form)
-                              `(~(first form) ~x ~@(next form))
-                              res))
-                         (meta form))
-              (list form x)))
-  ([x form & more] `(_> (_> ~x ~form) ~@more)))
-
-(defmacro _>>
-  ([x] x)
-  ([x form] (if (seq? form)
-              (with-meta (let [res (clojure.walk/postwalk-replace {'_ x} form)]
-                            (if (= res form)
-                              `(~@form ~x)
-                              res))
-                         (meta form))
-              (list form x)))
-  ([x form & more] `(_>> (_>> ~x ~form) ~@more)))

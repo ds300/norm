@@ -1,4 +1,5 @@
 (ns norm.data
+(:import [java.io IOException])
 (:require [norm.io :as io]
           [norm.trie :as trie]
           [norm.config :as config]))
@@ -75,10 +76,10 @@
     (System/exit(1))))
 
 (defn verify-readable! [& ids]
-  (verify-paths "Unable to read from:" can-read? ids))
+  (verify-paths! "Unable to read from:" can-read? ids))
 
 (defn verify-writeable! [& ids]
-  (verify-paths "Unable to write to:" can-write!? ids))
+  (verify-paths! "Unable to write to:" can-write!? ids))
 
 
 

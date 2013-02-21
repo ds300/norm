@@ -30,9 +30,6 @@
 (set! *warn-on-reflection* true)
 
 
-(defn word-tokenise [^String text]
-  (map first (re-seq #"((?<= )|(?<=^))[a-z][a-z\-']*" (.toLowerCase text))))
-
 (defn inc-freq! [transient_map k]
   (assoc! transient_map k (inc (transient_map k 0))))
 
@@ -42,7 +39,7 @@
   (loop [[word & remaining] (->> in
                               line-seq
                               (filter not-empty)
-                              (utils/pmapcat-chunked 500 word-tokenise))
+                              (utils/pmapcat-chunked 500 words/word-tokenise))
           iv_acc (transient {})
           oov_acc (transient {})]
     (if word
@@ -179,7 +176,8 @@
           [(- (ssk oov iv)) oov iv])))))
 
 (defn train! []
-  (data/verify-readable :twt :dict :dm-dict)
+  (data/verify-readable! :twt :dict :dm-dict)
+
   (data/load-and-bind [:dict :dm-dict]
     (let [iv_ids           (into {} (map vector (.words data/DICT) (range)))
           twt_path         (data/get-path :twt)

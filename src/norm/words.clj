@@ -8,6 +8,9 @@
       (.doubleMetaphone dm
         (str/replace string #"(.)\1\1+" "$1$1")))))
 
+(defn word-tokenise [^String text]
+  (map first (re-seq #"((?<= )|(?<=^))[a-z][a-z\-']*" (.toLowerCase text))))
+
 (defn tokenise [^String text]
   (into [] (cmu.arktweetnlp.Twokenize/tokenizeRawTweetText text)))
 
