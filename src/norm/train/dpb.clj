@@ -56,6 +56,7 @@
 (defn get-absolute-path [^java.io.File file]
   (.getAbsolutePath file))
 
+
 (defn train! []
   (data/verify-readable! :dict :nyt)
 
@@ -80,7 +81,7 @@
                                 (->> files
                                   (mapcat documents)
                                   (mapcat sentences)
-                                  (take n)
+                                  (take 1000)
                                   (utils/pmapcat extract-deps!_)
                                   (frequencies))))
           
@@ -88,10 +89,10 @@
         
       (doseq [f files] (.close f))
 
-      (io/open [:w out io/OUT_PATH
-                :w out-ids (str io/OUT_PATH "-ids")]
-        (io/doing-done "writing to disk"
-          (io/spit-tsv out-ids (seq (iv-ids)))
-          (io/spit-tsv out (for [[k v] freqs]
-                             ; flatten vector and get prob in stead of freq
-                             (conj k (/ (double v) num_deps)))))))))
+      (io/open [:w out-ids (str io/OUT_PATH "-ids")]
+        (let [fos (java.io.FileOutputStream. io/OUT_PATH)
+              out (java.io.ObjectOutputStream. fos)]
+              (io/doing-done "writing to disk"
+                (io/spit-tsv out-ids (seq (iv-ids)))
+                (.writeObject out freqs)))
+        ))))

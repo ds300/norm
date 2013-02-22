@@ -66,11 +66,12 @@
         iv-ids (into {} (io/parse-tsv (str path "-iv-ids") identity read-string))]
     (fn [gov dep off]
       (let [v (sort (filter identity (map f-ids [[0 (iv-ids gov)] [1 (iv-ids dep)] off])))]
-        (Linear/predict
-          model
-          (into-array FeatureNode 
-            (mapv #(FeatureNode. % 1.0) v)
-          ))))))
+        ({1.0 "pos" 0.0 "neg"}
+          (Linear/predict
+            model
+            (into-array FeatureNode 
+              (mapv #(FeatureNode. % 1.0) v)
+            )))))))
 
 (defn load-
   "loads the file specified by the id."

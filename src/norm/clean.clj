@@ -19,13 +19,14 @@
   "returns a filter which, rather incoherently, returns false if
   it has probably seen the given text before."
   []
-  (let [seen (atom #{})]
+  (let [seen (java.util.BitSet. (Integer/MAX_VALUE))]
     (fn [line]
-      (let [canon (canonicalise line)]
-        (if (or (< (count canon) 3) (@seen canon))
+      (let [canon (canonicalise line)
+            code (.hashCode (apply str canon))]
+        (if (or (< (count canon) 3) (not (.get seen code)))
           false
           (do
-            (swap! seen conj canon)
+            (.set seen code)
             true))))))
 
 (defn get-english-filter
