@@ -12,6 +12,8 @@
   :post-rank-cutoff 10 ; percent
 }
 
+:buffer-size 10000000
+
 :train {
   :nmd {
     :post-rank-cutoff 30 ; percent

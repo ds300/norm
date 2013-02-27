@@ -334,7 +334,7 @@ public class Trie extends AFn implements IPersistentMap{
     FNE current = null; 
 
     // iterate over queue, stopping when we've got enough
-    while ((n <= 0 || results.size() < n) && !q.isEmpty() && (d <= 0 || q.peek().dist <= d)) {
+    while ((n <= 0 || results.size() < n) && !q.isEmpty() && q.peek().dist <= d) {
       current = q.poll();
       if (current.node == null) {
         // if there is no node, it means we made the entry as a kind of

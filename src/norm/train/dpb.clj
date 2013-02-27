@@ -34,19 +34,21 @@
                 ; root dependencies involve a point, and a point is not a word,
                 ; so ignore root dependencies
                 (when (not= type "root") 
-                  (let [i (Integer. a) j (Integer. b) offset (- j i) ]
-                    (when (and 
-                             ; ensure, just in case, that i and j are >= 0
-                            (every? pos? [i j])
-                            ; also we only care about tokens up to three
-                            ; places removed from the target word
-                            (<= (Math/abs offset) 3))
-                      ; get the words and check they're in the dictionary
-                      (let [w1 (tkns (dec i)) w2 (tkns (dec j))]
-                        (when (every? #(.contains DICT ^String %) [w1 w2])
-                          ; replace words with unique IDs
-                          [(iv-ids w1) (iv-ids w2) offset]))))))
-        transformed_deps (filter identity (map getd deps))]
+                  (try
+                    (let [i (Integer. (.trim a)) j (Integer. (.trim b)) offset (- j i) ]
+                      (when (and 
+                               ; ensure, just in case, that i and j are >= 0
+                              (every? pos? [i j])
+                              ; also we only care about tokens up to three
+                              ; places removed from the target word
+                              (<= (Math/abs offset) 3))
+                        ; get the words and check they're in the dictionary
+                        (let [w1 (tkns (dec i)) w2 (tkns (dec j))]
+                          (when (every? #(.contains DICT ^String %) [w1 w2])
+                            ; replace words with unique IDs
+                            [(iv-ids w1) (iv-ids w2) offset]))))
+                    (catch NumberFormatException e (do nil)))))
+        transformed_deps (doall (filter identity (map getd deps)))]
     (dep-counter* (count transformed_deps))
     transformed_deps))
 
@@ -70,7 +72,7 @@
                               (.listFiles)
                               (filter filename-filter)
                               (map get-absolute-path)
-                              (map io/prog-reader-gz))
+                              (map io/reader-gz))
 
           extract-deps!_    (partial extract-untyped-deps! data/DICT iv-ids sentence-counter* dep-counter*)
           

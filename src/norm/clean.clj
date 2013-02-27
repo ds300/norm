@@ -15,18 +15,19 @@
   [line]
   (mapv #(take 4 %) (words/word-tokenise line)))
 
+
 (defn get-dupe-filter
   "returns a filter which, rather incoherently, returns false if
   it has probably seen the given text before."
   []
-  (let [seen (java.util.BitSet. (Integer/MAX_VALUE))]
+  (let [seen (atom #{})]
     (fn [line]
       (let [canon (canonicalise line)
-            code (.hashCode (apply str canon))]
-        (if (or (< (count canon) 3) (not (.get seen code)))
+            code (.hashCode (str canon))]
+        (if (or (< (count canon) 3) (@seen code))
           false
           (do
-            (.set seen code)
+            (swap! seen conj code)
             true))))))
 
 (defn get-english-filter

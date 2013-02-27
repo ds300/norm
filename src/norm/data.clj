@@ -108,7 +108,7 @@
     (doseq [p (map get-path ids)]
       (println "\t" p))
     (shutdown-agents)
-    (System/exit(1))))
+    (System/exit 1)))
 
 (defn verify-readable!
   "checks that the files with the given ids are readable."

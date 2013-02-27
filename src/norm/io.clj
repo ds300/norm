@@ -2,6 +2,7 @@
   "This module handles file i/o."
   (:require [clojure.data.json :as json]
             [clojure.java.io :as jio]
+            [norm.config :as config]
             [norm.json])
   (:import [cmu.arktweetnlp Twokenize])
   (:use [clojure.string :only (join)]))
@@ -10,16 +11,6 @@
 (def ^:dynamic OUT_PATH)
 
 (def join-tokens #(apply str (interpose " " %)))
-
-(defn prog-reader
-  "Progress tracking file reader. call (.progress ptfr)"
-  [filename]
-  (norm.jvm.ProgressTrackingBufferedFileReader/make filename))
-
-(defn prog-reader-gz
-  "Progress tracking gzip file reader."
-  [filename]
-  (norm.jvm.ProgressTrackingBufferedFileReader/makeGzip filename))
 
 (defmacro doing-done
   "Prints msg and then \"... \", executes body,
@@ -31,13 +22,38 @@
       (println "done!")
       result#)))
 
+(defn reader
+  "Progress reporting file reader. call .progress for progress string"
+  ([filename buffer_size]
+    (norm.jvm.ProgressReportingBufferedFileReader/make filename buffer_size))
+  ([filename]
+    (reader filename (config/opt :buffer-size))))
+
+(defn reader-gz
+  "Progress reporting file reader. call .progress for progress string"
+  ([filename buffer_size]
+    (norm.jvm.ProgressReportingBufferedFileReader/makeGzip filename buffer_size))
+  ([filename]
+    (reader-gz filename (config/opt :buffer-size))))
+
 (defn writer-gz
   "Creates a gzip file writer for the given path"
-  [filename]
-  (-> filename
-    (java.io.FileOutputStream.)
-    (java.util.zip.GZIPOutputStream.)
-    (java.io.OutputStreamWriter.)))
+  ([filename buffer_size]
+    (-> filename
+      (java.io.FileOutputStream.)
+      (java.util.zip.GZIPOutputStream.)
+      (java.io.OutputStreamWriter.)
+      (java.io.BufferedWriter. buffer_size)))
+  ([filename]
+    (writer-gz filename (config/opt :buffer-size))))
+
+(defn writer
+  ([filename buffer_size]
+    (-> filename
+      (java.io.FileWriter.)
+      (java.io.BufferedWriter. buffer_size)))
+  ([filename]
+    (writer filename (config/opt :buffer-size))))
 
 
 (defn line-seq-with-close
@@ -139,13 +155,15 @@
     :wz (gzip writer)
     :r (progress tracking buffered reader)
     :rz (progress tracking gzip reader)"
-  [mode f]
-  (let [path (if (instance? java.io.File f) (.getAbsolutePath f) f)]
-    (case mode
-      :w  (clojure.java.io/writer path)
-      :wz (writer-gz path)
-      :r  (prog-reader path)
-      :rz (prog-reader-gz path))))
+  [mode f buffer_size]
+  (let [path (if (instance? java.io.File f) (.getAbsolutePath f) f)
+        func (case mode
+              :w  writer
+              :wz writer-gz
+              :r  reader
+              :rz reader-gz
+              (throw (Exception. (str "Invalid write mode " mode))))]
+    (func path buffer_size)))
 
 (defmacro open
   "binds readers or writers to names. bindings are triples
@@ -154,16 +172,14 @@
   is equal to (let [in (open- :r some_path)])
   Its much less verbose when you're opening multiple files."
   [bindings & body]
-  (cond
-    (= 0 (count bindings))
-      `(do ~@body)
-    (= 0 (mod (count bindings) 3))
-      (let [[mode id f & others] bindings]
-        `(clojure.core/let [~id (norm.io/open- ~mode ~f)]
-           (try
-             (norm.io/open ~(drop 3 bindings) ~@body)
-             (finally ~@(filter identity
-                          [(when (#{:w :wz} mode) `(.flush ~id)) `(.close ~id)])))))
+  (if (= 0 (count bindings))
+   `(do ~@body)
+    (let [[mode id f & [buf bufsz & more :as others]] bindings
+           do_more (= buf :buf)
+           buffer_size (if do_more bufsz (config/opt :buffer-size))]
+      `(clojure.core/let [~id (norm.io/open- ~mode ~f ~buffer_size)]
+         (try
+           (norm.io/open ~(if do_more (vec more) (vec others)) ~@body)
+           (finally ~@(filter identity
+                        [(when (#{:w :wz} mode) `(.flush ~id)) `(.close ~id)])))))))
   
-    :else (throw (IllegalArgumentException.
-                   (str "number of forms in binding vector must be a multiple of three" bindings)))))

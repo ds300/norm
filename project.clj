@@ -5,6 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [org.clojure/data.json "0.2.1"]
+                 [commons-io/commons-io "2.4"]
                  [commons-lang/commons-lang "2.6"]
                  [commons-codec/commons-codec "1.6"]
                  [org.clojure/tools.cli "0.2.2"]
