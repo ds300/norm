@@ -66,6 +66,7 @@
           dep-counter*      (utils/counter)
           iv-ids            (utils/unique-id-getter)
           n                 (config/opt :train :dpb :num-sents)
+          chunks            (config/opt :train :dpb :chunks)
 
           files             (->> (data/get-path :nyt)
                               (java.io.File.)
@@ -77,13 +78,14 @@
           extract-deps!_    (partial extract-untyped-deps! data/DICT iv-ids sentence-counter* dep-counter*)
           
           freqs             (do 
+                              (println "Chunks:" chunks)
                               (println "Extracting dependencies from up to" n "sentences in nyt corpus...")
                               (progress/monitor [#(str "\t" (sentence-counter*) " sentences processed") 1000]
                                 (->> files
-                                  (mapcat documents)
-                                  (mapcat sentences)
+                                  (utils/pmapcat documents)
+                                  (utils/pmapcat sentences)
                                   (take n)
-                                  (utils/pmapcat extract-deps!_)
+                                  (utils/pmapcat-chunked chunks extract-deps!_)
                                   (frequencies))))
           
           num_deps          (dep-counter*)] ;deref this once to save processings
