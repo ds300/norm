@@ -52,15 +52,40 @@
   }
 ])
 
+(defn equal-seqs? [& seqs]
+  (every? true?
+    (apply (partial map =) seqs)))
+
 (deftest raw-test
   (testing "raw input works yes?"
-    (is (every? true? (map = expected_raw (get-stream "raw" "./test/norm/data/io.raw.txt"))))))
+    (open [:r in "./test/norm/data/io.raw.txt"]
+      (is (equal-seqs? expected_raw (get-stream "raw" in))))))
 
 (deftest tkn-test
   (testing "tkn input works yes?"
-    (is (every? true? (map = expected_tkn (get-stream "tkn" "./test/norm/data/io.tkn.txt"))))))
+    (open [:r in "./test/norm/data/io.tkn.txt"]
+      (is (equal-seqs? expected_tkn (get-stream "tkn" in))))))
 
 (deftest json-test
   (testing "json input works yes?"
-    (is (every? true? (map = expected_json (get-stream "json" "./test/norm/data/io.json.txt"))))))
+    (open [:r in "./test/norm/data/io.json.txt"]
+    (is (equal-seqs? expected_json (get-stream "json" in))))))
+
+(deftest spit-tsv-test
+  (testing "spit-tsv works yes?"
+    (let [wrt (java.io.StringWriter.)
+          data '(["some value" "another_value" "one more value"] [3 6 22])
+          expected "some value\tanother_value\tone more value\n3\t6\t22\n"]
+      (spit-tsv wrt data)
+      (is (=
+            (str wrt)
+            expected)))))
+
+(deftest parse-tsv-test
+  (testing "parse-tsv works yes?"
+    (let [rdr (java.io.StringReader. "monkeys are\t78\ntotally\t9304\tawesome\t4687\n")
+          expected [["monkeys are" 78] ["totally" 9304 "awesome" "4687"]]]
+      (is (equal-seqs?
+            expected
+            (parse-tsv rdr identity #(Integer. %)))))))
 

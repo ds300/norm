@@ -65,7 +65,7 @@
   [dm-dict lex_dist phon_dist cutoff-percent iv_trie word]
   (let [cs (words/raw-confusion-set iv_trie dm-dict lex_dist phon_dist word)
         n (int (-> (count cs) (/ 100) (* cutoff-percent)))
-        freq #(.tfreq iv_trie %)]
+        freq #(- (.tfreq iv_trie %))]
     (take n (sort-by freq cs))))
 
 (defn generate-confusion-sets!
@@ -196,11 +196,11 @@
   (let [oov_context @(all_context* oov_word)
         left_result (.left measure oov_context)
         candidates  (for [iv_word confusion_set]
-                                (let [iv_context@(all_context* iv_word)
-                                      right_result (.right measure iv_context)
-                                      shared_result (.shared ^AbstractProximity measure oov_context iv_context)
-                                      combined (.combine measure shared_result left_result right_result)]
-                                  [iv_word combined]))
+                      (let [iv_context@(all_context* iv_word)
+                            right_result (.right measure iv_context)
+                            shared_result (.shared ^AbstractProximity measure oov_context iv_context)
+                            combined (.combine measure shared_result left_result right_result)]
+                        [iv_word combined]))
         [top_candidate _] (first (sort-by second candidates))]
     (when top_candidate
       [oov_word top_candidate])))

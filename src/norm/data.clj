@@ -20,45 +20,42 @@
 ])
 
 (doseq [id (map (comp symbol clojure.string/upper-case name) FILES)]
-  (.setDynamic (intern 'norm.data id)))
-
-
-(defn set-path!
-  "set the path of a particular file (id should be a keyword)"
-  [id path]
-  (println "Setting " id " to " path)
-  (swap! config/OPTS assoc-in [:data :paths id] path))
+  (.setDynamic (intern 'norm.data id))
+  (config/declare-opt! :data :paths :id))
 
 
 (defn get-path
   "get the path of a particular file (id should be a keyword)"
   [id]
-  (or
-    (get-in @config/OPTS [:data :paths id])
-    (str (get-in @config/OPTS [:data :dir]) "/" (name id))))
+  (let [p (config/opt :data :paths id)]
+    (if (= p :undefined)
+      (str (config/opt :data :dir) "/" (name id))
+      p)))
 
 (defn atoi "make an integer of a" [a]
   (Integer. a))
+
+(defn atod "make a double of a" [a]
+  (Double. a))
 
 (defn load-dpb-data
   "load dependency bank data from the specified path. returns
   a tuple of the form [word_id_map, dependency_bank]"
   [path]
-  [
-    (into {} (io/parse-tsv (str path "-ids") identity atoi))
-    (into {} 
-      (for [[g d o s] (io/parse-tsv path atoi atoi atoi #(Double. %))] 
-        [[g d o] s]))
-  ])
+  (into {} 
+    (for [[word & offest_scores] (apply
+                                   (partial io/parse-tsv path identity)
+                                   (flatten (repeat [atoi atod])))] 
+      [word (apply hash-map offest_scores)])))
 
 (defn load-dpb
   "loads the dependency bank at the specified path.
   returns a fn which takes a governor, a dependent, and an offset
   and returns the triple's score in the dependency bank"
   [path]
-  (let [[ids deps] (load-dpb-data path)]
-   (fn [w1 w2 offset]
-     (deps [(ids w1) (ids w2) offset] 0))))
+  (let [data (load-dpb-data path)]
+   (fn [w offset]
+     (or (get-in data [w offset]) 0))))
 
 (defn load-lksm [path]
   (let [model (Linear/loadModel (java.io.File. path))

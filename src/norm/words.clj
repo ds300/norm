@@ -65,9 +65,9 @@
         ; update the ranks atom with cs ranked by lsfn
         update-ranks! (fn [lsfn]
                        (swap! ranks (partial merge-with +) (into {} (rank lsfn))))]
-    (when (seq lctx)
-      (update-ranks! #(conj lctx %)))
-    (when (seq rctx)
-      (update-ranks! #(cons % (seq rctx))))
+    ; (when (seq lctx)
+    ;   (update-ranks! #(conj lctx %)))
+    ; (when (seq rctx)
+    ;   (update-ranks! #(cons % (seq rctx))))
     (update-ranks! #(filter identity [(last lctx) % (first rctx)]))
     (map first (sort-by last @ranks))))

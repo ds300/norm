@@ -34,25 +34,27 @@
   a function that returns a unique id for features, iv-ids* is a function
   which returns unique ids for iv words, and get-confusion-set is a function
   which takes a token list and an index and returns an lm-ranked confusion set."
-  [DICT DPB feature-ids* iv-ids* get-confusion-set tokens]
-  (filter identity
-    (apply concat
-      (for [i (range (count tokens))]
-        (when (.contains DICT (tokens i))
-          (let [confusion_set (get-confusion-set tokens i)
-                pos (extract-positive-features DICT tokens i)
-                neg (derive-negative-features pos confusion_set)]
-            ;; get feature-ids* of iv-ids* to save space
-            ;; also get DPB scores
-            (for [[posneg gov dep off] (concat pos neg)]
-              [  
-                posneg
-                (feature-ids* [0 (iv-ids* gov)])
-                (feature-ids* [1 (iv-ids* dep)])
-                (feature-ids* off)
-                (DPB gov dep off)
-              ]
-            )))))))
+  [DICT DPB feature-ids* iv-ids* get-confusion-set tweet-counter* line]
+  (tweet-counter* 1)
+  (let [tokens (words/tokenise-lower line)]
+    (filter identity
+      (apply concat
+        (for [i (range (count tokens))]
+          (when (.contains DICT (tokens i))
+            (let [confusion_set (get-confusion-set tokens i)
+                  pos (extract-positive-features DICT tokens i)
+                  neg (derive-negative-features pos confusion_set)]
+              ;; get feature-ids* of iv-ids* to save space
+              ;; also get DPB scores
+              (for [[posneg gov dep off] (concat pos neg)]
+                [  
+                  posneg
+                  (feature-ids* [0 (iv-ids* gov)])
+                  (feature-ids* [1 (iv-ids* dep)])
+                  (feature-ids* off)
+                  (DPB gov off)
+                ]
+              ))))))))
 
 (defn legit-feature?
   "illegitimate features are negative ones which have already been seen as positive ones"
@@ -121,8 +123,11 @@
             lex_dist                  (config/opt :confusion-sets :lex-dist)
             phon_dist                 (config/opt :confusion-sets :phon-dist)
             num_candidates            (config/opt :train :lksm :num-candidates)
+            chunksize                 (config/opt :train :lksm :chunksize)
+            num_tweets                (config/opt :train :lksm :num-tweets)
+            tweet-counter*            (utils/counter)
             get-confusion-set         (confusion-set-getter data/DICT data/DM-DICT data/TLM lex_dist phon_dist num_candidates)
-            extract-feats!_           (partial extract-features! data/DICT data/DPB feature-ids* iv-ids* get-confusion-set)
+            extract-feats!_           (partial extract-features! data/DICT data/DPB feature-ids* iv-ids* get-confusion-set tweet-counter*)
             legit-feat?_              (partial legit-feature? pos-feature-vector-ids*)
             encode-feat_              (partial encode-feature-vector (feature-ids* :dpb-score))
             store-feats-1!_           (partial store-features:first-pass! legit-feat?_ pos-feature-vector-ids*)
@@ -131,13 +136,16 @@
         (println "Extracting feature-vectors: first pass")
         (io/open [:r in (data/get-path :twt-c)
                   :w out tmp1_path]
-          (progress/monitor [#(str "\t" (.progress in)) 1000]
+          (progress/monitor [#(str "\t" (tweet-counter*) " tweets processed") 6000]
             (->> in
               (line-seq)
               (filter not-empty)
-              (map words/tokenise-lower)
-              (utils/pmapcat extract-feats!_)
-              (store-feats-1!_ out))))
+              (take num_tweets)
+              (utils/pmapall-chunked chunksize extract-feats!_)
+              (apply concat)
+              (store-feats-1!_ out)
+
+              )))
 
         (io/doing-done "Storing feature-ids"
           (io/open [:w out feature_ids_path]

@@ -26,7 +26,7 @@
 (defn dependencies [sentence]
   (mapcat :content (get-kids-by-tag :basic-dependencies sentence)))
 
-(defn extract-untyped-deps! [^norm.jvm.Trie DICT iv-ids sentence-counter* dep-counter* sentence]
+(defn extract-untyped-deps! [^norm.jvm.Trie DICT sentence-counter* dep-counter* store-fn* sentence]
   (sentence-counter* 1)
   (let [tkns  (tokens sentence)
         deps  (dependencies sentence)
@@ -44,13 +44,14 @@
                               (<= (Math/abs offset) 3))
                         ; get the words and check they're in the dictionary
                         (let [w1 (tkns (dec i)) w2 (tkns (dec j))]
-                          (when (every? #(.contains DICT ^String %) [w1 w2])
+                          (when (and 
+                                  (.contains DICT ^String w1)
+                                  (not (.contains DICT ^String w2)))
                             ; replace words with unique IDs
-                            [(iv-ids w1) (iv-ids w2) offset]))))
-                    (catch NumberFormatException e (do nil)))))
-        transformed_deps (doall (filter identity (map getd deps)))]
-    (dep-counter* (count transformed_deps))
-    transformed_deps))
+                            (store-fn* [w1 offset])
+                            (dep-counter* 1)))))
+                    (catch NumberFormatException e (do nil)))))]
+    (dorun (map getd deps))))
 
 (defn filename-filter [^java.io.File file]
   (.. file getName (startsWith "nyt")))
@@ -58,13 +59,22 @@
 (defn get-absolute-path [^java.io.File file]
   (.getAbsolutePath file))
 
+(defn store! [iv_freq_maps* [w off]]
+  (swap! (iv_freq_maps* w) update-in [off] (fnil inc 0)))
+
+(defn handle-file! [sentence-handler! f]
+  (doseq [document (documents f)]
+    (doseq [sentence (sentences document)]
+      (sentence-handler! sentence))))
+
 (defn train! []
   (data/verify-readable! :dict :nyt)
 
   (data/load-and-bind [:dict]
     (let [sentence-counter* (utils/counter)
           dep-counter*      (utils/counter)
-          iv-ids            (utils/unique-id-getter)
+          iv_freq_maps*     (into {} (map vector (.words data/DICT) (repeatedly #(atom {}))))
+          store!_           (partial store! iv_freq_maps*)
           n                 (config/opt :train :dpb :num-sents)
           chunks            (config/opt :train :dpb :chunks)
 
@@ -75,27 +85,22 @@
                               (map get-absolute-path)
                               (map io/reader-gz))
 
-          extract-deps!_    (partial extract-untyped-deps! data/DICT iv-ids sentence-counter* dep-counter*)
-          
-          freqs             (do 
-                              (println "Chunks:" chunks)
-                              (println "Extracting dependencies from up to" n "sentences in nyt corpus...")
-                              (progress/monitor [#(str "\t" (sentence-counter*) " sentences processed") 1000]
-                                (->> files
-                                  (utils/pmapcat documents)
-                                  (utils/pmapcat sentences)
-                                  (take n)
-                                  (utils/pmapcat-chunked chunks extract-deps!_)
-                                  (frequencies))))
-          
-          num_deps          (dep-counter*)] ;deref this once to save processings
-        
+          extract-deps!_    (partial extract-untyped-deps! data/DICT sentence-counter* dep-counter* store!_)
+          handle-file!_     (partial handle-file! extract-deps!_)]
+      
+      (println "Chunksize:" chunks)
+      (println "Extracting dependencies from up to" n "sentences in nyt corpus...")
+      (progress/monitor [#(str "\t" (sentence-counter*) " sentences processed") 1000]
+        (dorun
+          (utils/pmapall handle-file!_ files)))
+
+
       (doseq [f files] (.close f))
 
-      (io/open [:w out io/OUT_PATH
-                :w out-ids (str io/OUT_PATH "-ids")]
+      (io/open [:w out io/OUT_PATH]
         (io/doing-done "writing to disk"
-          (io/spit-tsv out-ids (seq (iv-ids)))
-          (io/spit-tsv out (for [[k v] freqs]
-                             ; flatten vector and get prob in stead of freq
-                             (conj k (/ (double v) num_deps)))))))))
+          (let [num_deps (dep-counter*)]
+            (io/spit-tsv out
+              (for [[w freq_atom] (filter (comp not-empty deref last) iv_freq_maps*)]
+                (flatten [w (for [[k v] @freq_atom]
+                              [k (/ (double v) num_deps)])])))))))))

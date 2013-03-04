@@ -23,7 +23,10 @@
   [from]
   (-> from slurp bracktise read-string))
 
-(defn ensure-absolute [rel_dir pathname]
+(defn ensure-absolute
+  "Returns pathname if absolute, or resolves it's absolute path
+  with respect to rel_dir and returns that."
+  [rel_dir pathname]
   (let [f (as-file pathname)]
     (if (.isAbsolute f)
       pathname
@@ -49,3 +52,32 @@
   "Get an option from the config map. ks are clojure keywords"
   [& ks]
   (or (get-in @OPTS ks) (throw (Exception. (str "no option at " ks)))))
+
+(def corecers
+  {
+    String   identity
+    Long     #(Long. %)
+    Integer  #(Integer. %)
+    Double   #(Double. %)
+    Float    #(Float. %)
+  })
+
+(defn set-opt! [ks v]
+  (if-let [orig (get-in @OPTS ks)]
+    (swap! OPTS assoc-in ks ((coercers (type orig) read-string) v))
+    (if (throw (Exception. (str "Trying to set invalid option: " ks))))))
+
+(defn declare-opt! [& ks]
+  (assoc-in OPTS ks :undefined))
+
+(defn def-opt! [[ks] v]
+  (assoc-in OPTS ks v))
+
+(defn parse-opts [[a & [b & others :as more]]]
+  (when a
+    (if (= \: (first a))
+      (let [loc (re-seq #":[a-z\-_]+" a)]
+        (set-opt! loc b)
+        (lazy-seq (parse-opts others)))
+      (cons a (lazy-seq (parse-opts more))))))
+

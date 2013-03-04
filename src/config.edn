@@ -28,10 +28,11 @@
 
   :dpb {
     :num-sents 40000000
-    :chunks 1
   }
 
   :lksm {
+    :chunksize 1
+    :num-tweets 10000000
     :bias 1.0
     :eps 0.01
     :c 1.0

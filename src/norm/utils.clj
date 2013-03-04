@@ -13,6 +13,33 @@
   (apply concat
     (pmap-chunked n f coll)))
 
+(defn unchunk [s]
+  (when (first s)
+    (lazy-seq
+      (cons (first s) (unchunk (next s))))))
+
+(defn pmapall [f coll]
+  (let [num_threads (.. Runtime getRuntime availableProcessors)
+        remaining   (atom ())
+        func        (fn [item]
+                      (let [result (f item)]
+                        (swap! remaining next)
+                        result))
+        futures     (map #(future (func %)) (unchunk coll))]
+    (reset! remaining (drop num_threads futures))
+    (first @remaining) ; run the futures we just dropped + 1 more
+    (map deref futures)))
+
+(defn pmapall-chunked [n f coll]
+  (apply concat
+    (pmapall #(doall (map f %)) (partition-all n coll))))
+
+(defn chunked [mapf chunksize]
+  (fn [f coll]
+    (apply concat
+      (mapf #(doall (map f %))
+        (partition-all chunksize coll)))))
+
 (defn unique-id-getter
   "returns a function that assigns unique long ids to elements
    in an efficient, lockless, thread-safe manner.
