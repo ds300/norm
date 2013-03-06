@@ -78,6 +78,16 @@
                         ([k i] (swap! m update-in [k] #(+ i (or % start_value)))))))
   ([] (map-counter 0)))
 
+(defn atomised-map-counter
+  ([start_value]  (let [m (atom {})]
+                    (fn ([] @m)
+                        ([k] @(@m k))
+                        ([k i] 
+                          (if-let [a (@m k)]
+                            (swap! a #(+ % i))
+                            (swap! m assoc k (atom (+ i start_value))))))))
+  ([] (atomised-map-counter 0)))
+
 (defn update-with [f m] (into {} (for [[k v] m] [k (f v)])))
 
 (defn indexify 

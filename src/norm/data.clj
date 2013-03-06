@@ -21,7 +21,7 @@
 
 (doseq [id (map (comp symbol clojure.string/upper-case name) FILES)]
   (.setDynamic (intern 'norm.data id))
-  (config/declare-opt! :data :paths :id))
+  (config/declare-opt! :data :paths (keyword (clojure.string/lower-case id))))
 
 
 (defn get-path

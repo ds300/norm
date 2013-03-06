@@ -53,30 +53,31 @@
   [& ks]
   (or (get-in @OPTS ks) (throw (Exception. (str "no option at " ks)))))
 
-(def corecers
+(def coercers
   {
-    String   identity
-    Long     #(Long. %)
-    Integer  #(Integer. %)
-    Double   #(Double. %)
-    Float    #(Float. %)
+    clojure.lang.Keyword identity
+    java.lang.String   identity
+    java.lang.Long     #(Long. %)
+    java.lang.Integer  #(Integer. %)
+    java.lang.Double   #(Double. %)
+    java.lang.Float    #(Float. %)
   })
 
 (defn set-opt! [ks v]
   (if-let [orig (get-in @OPTS ks)]
     (swap! OPTS assoc-in ks ((coercers (type orig) read-string) v))
-    (if (throw (Exception. (str "Trying to set invalid option: " ks))))))
+    (throw (Exception. (str "Trying to set invalid option: " ks)))))
 
 (defn declare-opt! [& ks]
-  (assoc-in OPTS ks :undefined))
+  (swap! OPTS assoc-in ks :undefined))
 
 (defn def-opt! [[ks] v]
-  (assoc-in OPTS ks v))
+  (swap! OPTS assoc-in ks v))
 
 (defn parse-opts [[a & [b & others :as more]]]
   (when a
     (if (= \: (first a))
-      (let [loc (re-seq #":[a-z\-_]+" a)]
+      (let [loc (map (comp keyword last) (re-seq #":([a-z\-_]+)" a))]
         (set-opt! loc b)
         (lazy-seq (parse-opts others)))
       (cons a (lazy-seq (parse-opts more))))))

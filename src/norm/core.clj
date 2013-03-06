@@ -102,36 +102,18 @@
 
 
 
-
 (defn -main
   "I don't do a whole lot."
   [& args]
-  (reset! ARGS args)
 
-  ;; start off by setting up the manually-specified data paths
   ; get paths from command line
-  (let [[opts unused _] (apply cli/cli
-                          (into
-                            [@ARGS ["-d" "--data-dir" "the data directory to use"]]
-                            (map
-                              #(do [(str "--" %) (str "override " % " path")])
-                              (map name data/FILES))))]
-
-    ; swap dir if necessary
-    (when-let [data-dir (:data-dir args)]
-      (swap! config/OPTS assoc-in [:data :dir] data-dir))
-    
-    ; swap all other specified paths
-    (doseq [[k v] (dissoc opts :data-dir)]
-      (data/set-path! k v))
-
-    ; remove any consumed args
-    (reset! ARGS unused))
+  (let [cmd_args (config/parse-opts args)]
+   
 
     ; now decide which command to dispatch to
-    (if-let [command-fn (commands (first @ARGS))]
-      (do (swap! ARGS rest) (command-fn @ARGS))
-      (fail (str "Unrecognised command: " (first @ARGS))))
+    (if-let [command-fn (commands (first cmd_args))]
+      (command-fn (rest cmd_args))
+      (fail (str "Unrecognised command: " (first @ARGS)))))
 
 
   (shutdown-agents))

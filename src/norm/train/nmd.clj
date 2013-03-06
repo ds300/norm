@@ -36,28 +36,40 @@
   present."
   (assoc! transient_map k (inc (transient_map k 0))))
 
-(defn stratify-corpus-words!
-  "takes a dictionary, a predicate of type (oov_word count) -> Bool,
-  and an input reader, and returns the words found in reader in two forms.
-  The first is a list of all OOV words which the predicate returned true for,
-  the second is a frequency-augmented trie of all the IV words observed."
-  [^norm.jvm.Trie DICT oov_predicate in]
-  (loop [[word & remaining] (->> in
-                              line-seq
-                              (filter not-empty)
-                              (utils/pmapcat-chunked 500 words/word-tokenise))
-          iv_acc (transient {})
-          oov_acc (transient {})]
+(defn count-corpus-words!
+  "countes the words in the given input streams.
+  returns a seq of [word freq] pairs"
+  [in]
+  (let [word_freqs* (utils/atomised-map-counter)
+        process-tweet* (fn [line]
+                         (doseq [word (words/word-tokenise line)]
+                           (word_freqs* word 1)))]
+    (->> in
+      line-seq
+      (filter not-empty)
+      (utils/pmapall-chunked 500 process-tweet*)
+      dorun)
+
+    (for [[word freq_atom] (seq (word_freqs*))]
+      [word @freq_atom])))
+
+(defn stratify-counted-words!
+  "Takes a dictionary, an oov_predicate which should accept a [word, freq] pair,
+  a counter for progress tracking, and a seq of [word, freq] pairs. returns
+  a [iv_trie, oov_words_list] pair"
+  [^norm.jvm.Trie DICT oov_predicate counter* word_freqs]
+  (loop [[[word freq :as wf] & more] word_freqs
+         iv_trie     (trie/trie)
+         oov_words   (transient [])]
+    (counter* 1)
     (if word
       (if (.contains DICT word)
-          (recur remaining (inc-freq! iv_acc word) oov_acc)
-          (recur remaining iv_acc (inc-freq! oov_acc word)))
-      ; else return seq of oov words and trie of iv words
-      [
-        (map first (filter oov_predicate (persistent! oov_acc)))
-        (trie/trie (persistent! iv_acc))
-      ])))
-
+        (recur more (conj iv_trie wf) oov_words)
+        (recur more iv_trie
+          (if (oov_predicate wf)
+            (conj! oov_words word)
+            oov_words)))
+      [(persistent! oov_words) iv_trie])))
 
 (defn get-confusion-set
   "Takes a bunch of parameters and a word, and returns a confusion set
@@ -74,7 +86,7 @@
   Increments the counter for every word processed."
   [counter* get-cs oov_words]
   (let [doit (fn [oov_word] (counter* 1) [oov_word (get-cs oov_word)])]
-    (into {} (pmap doit oov_words))))
+    (into {} (utils/pmapall doit oov_words))))
 
 (defn get-context-accumulator-map
   "takes a map from words to confusion sets, and returns a map
@@ -159,7 +171,7 @@
         id!_  (partial feature-id! (ref {}) feature-freqs*)
         store!_ (partial store-context! n_gram_order window_size iv_ids ctx-acc* feature-freqs* id!_)]
     ;; do the actual computation
-    (dorun (utils/pmap-chunked 20 store!_ (filter not-empty (line-seq in))))
+    (dorun (utils/pmapall-chunked 20 store!_ (filter not-empty (line-seq in))))
     ;; return still-atmoised data structures
     [ctx-acc* @feature-freqs*]))
 
@@ -181,9 +193,8 @@
   to SparseDoubleVector objects with the specified cardinality.
   increases counter for each sdv created."
   [counter* cardinality all_context*]
-  (doall
-    (pmap #(do (swap! % to-sdv cardinality) (counter* 1))
-      (vals all_context*))))
+  (utils/pmapall #(do (swap! % to-sdv cardinality) (counter* 1))
+    (vals all_context*)))
 
 
 
@@ -209,13 +220,12 @@
   "makes distributionally similar pairs for all keys of oov_cs_map.
   increments counter for each word processed."
   [counter* oov_cs_map all_context* measure]
-  (doall
-    (filter identity
-      (pmap 
-        (fn [[oov_word confusion_set]]
-          (counter* 1)
-          (get-pair measure all_context* oov_word confusion_set))
-        oov_cs_map))))
+  (filter identity
+    (utils/pmapall 
+      (fn [[oov_word confusion_set]]
+        (counter* 1)
+        (get-pair measure all_context* oov_word confusion_set))
+      oov_cs_map)))
 
 (defn rank-pairs
   "Sorts a collection of pairs of strings according to their
@@ -248,12 +258,20 @@
                                (<= min_freq freq)
                                (<= min_length (count word))))]
 
-      (utils/with-atoms [oov_words iv_trie oov_cs_map all_context* feature_freqs pairs]
+      (utils/with-atoms [counts oov_words iv_trie oov_cs_map all_context* feature_freqs pairs]
         ; get our words from the corpus in the relevat formats
         (io/open [:r in twt_path]
           (println "Counting words...")
           (progress/monitor [#(str "\t" (.progress in))]
-            (utils/assign! [oov_words iv_trie] (stratify-corpus-words! data/DICT oov_predicate in))))
+            (reset! counts (count-corpus-words! in))))
+
+        (let [counter* (utils/counter)]
+          (println "Stratifying counted words...")
+          (progress/monitor [#(str "\t" (counter*))]
+            (utils/assign! [oov_words iv_trie] (stratify-counted-words! data/DICT oov_predicate counter* @counts))))
+
+        ; we don't need this anymore
+        (reset! counts nil)
 
         (let [counter* (utils/counter)]
           (println "Generating confusion sets...")

@@ -76,7 +76,6 @@
           iv_freq_maps*     (into {} (map vector (.words data/DICT) (repeatedly #(atom {}))))
           store!_           (partial store! iv_freq_maps*)
           n                 (config/opt :train :dpb :num-sents)
-          chunks            (config/opt :train :dpb :chunks)
 
           files             (->> (data/get-path :nyt)
                               (java.io.File.)
@@ -88,7 +87,6 @@
           extract-deps!_    (partial extract-untyped-deps! data/DICT sentence-counter* dep-counter* store!_)
           handle-file!_     (partial handle-file! extract-deps!_)]
       
-      (println "Chunksize:" chunks)
       (println "Extracting dependencies from up to" n "sentences in nyt corpus...")
       (progress/monitor [#(str "\t" (sentence-counter*) " sentences processed") 1000]
         (dorun

@@ -176,7 +176,7 @@
    `(do ~@body)
     (let [[mode id f & [buf bufsz & more :as others]] bindings
            do_more (= buf :buf)
-           buffer_size (if do_more bufsz `(config/opt :buffer-size))]
+           buffer_size (if do_more bufsz '(norm.config/opt :buffer-size))]
       `(clojure.core/let [~id (norm.io/open- ~mode ~f ~buffer_size)]
          (try
            (norm.io/open [~@(if do_more more others)] ~@body)

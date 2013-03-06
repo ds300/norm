@@ -2,17 +2,29 @@
   (:require [norm.trie :as trie]
             [clojure.string :as str]))
 
+(defn remove-repetition [s]
+  (-> s
+    (str/replace #"(.)\1\1\1+" "$1$1$1")
+    (str/replace #"(..)\1\1+" "$1$1")))
+
 (def double-metaphone
   (let [dm (org.apache.commons.codec.language.DoubleMetaphone.)]
     (fn [^String string]
       (.doubleMetaphone dm
-        (str/replace string #"(.)\1\1+" "$1$1")))))
+        (remove-repetition string)))))
 
 (defn word-tokenise [^String text]
-  (map first (re-seq #"((?<= )|(?<=^))[a-z][a-z\-']*" (.toLowerCase text))))
+  (->> text
+    (.toLowerCase)
+    (remove-repetition)
+    (re-seq #"((?<= )|(?<=^))[a-z][a-z\-']*")
+    (map first)))
 
 (defn tokenise [^String text]
-  (into [] (cmu.arktweetnlp.Twokenize/tokenizeRawTweetText text)))
+  (->> text
+    remove-repetition
+    cmu.arktweetnlp.Twokenize/tokenizeRawTweetText
+    (into [])))
 
 (def tokenise-lower (comp tokenise str/lower-case))
 
