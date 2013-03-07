@@ -125,7 +125,7 @@
       (when (ctx-acc* word)
         (doseq [fid (->> (context n_gram_order window_size ngrams i)
                       (filter no-nils?)
-                      (map feature-id*))]
+                      (map (comp feature-id* int-array)))]
           (swap! (@feature-freqs* fid) inc)
           (swap! (ctx-acc* word) update-in [fid] (fnil inc 0)))))))
 
@@ -135,7 +135,6 @@
   [n_gram_order window_size iv_ids ctx-acc* in]
   (let [feature-freqs* (atom [])
         feature-id*    (utils/unique-id-getter 0 (fn [n]
-
                                                    (swap! feature-freqs* #(if (>= n (count %))
                                                                             (conj % (atom 0))
                                                                             %))))
