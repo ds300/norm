@@ -34,12 +34,6 @@
   (apply concat
     (pmapall #(doall (map f %)) (partition-all n coll))))
 
-(defn chunked [mapf chunksize]
-  (fn [f coll]
-    (apply concat
-      (mapf #(doall (map f %))
-        (partition-all chunksize coll)))))
-
 (defn unique-id-getter
   "returns a function that assigns unique long ids to elements
    in an efficient, lockless, thread-safe manner.
@@ -50,20 +44,31 @@
    otherwise the value of the second arg is retured."
   ([] (unique-id-getter 0))
   ([start_value]
-    (let [ids (ref {})]
-      (fn
+    (let [ids (atom {})]
+      (fn 
         ([] @ids)
-        ([elem]
-          (or 
-            (@ids elem)
-            (dosync
-              (or
-                (@ids elem)
-                (+ start_value -1
-                  (count
-                    (alter ids #(assoc % elem (+ start_value (count %))))))))))
-        ([elem not_found]
-          (@ids elem not_found))))))
+        ([k] (let [nids (swap! ids 
+                          (fn [m]
+                            (if (m k)
+                              m
+                              (assoc m k (+ start_value (count m))))))]
+          (nids k)))
+        ([k not_found]
+          (@ids k not_found)))))
+  ([start_value new_item_callback]
+    (let [ids (atom {})]
+      (fn 
+        ([] @ids)
+        ([k] (let [nids (swap! ids 
+                          (fn [m]
+                            (if (m k)
+                              m
+                              (do 
+                                (new_item_callback (+ start_value (count m)))
+                                (assoc m k (+ start_value (count m)))))))]
+          (nids k)))
+        ([k not_found]
+          (@ids k not_found))))))
 
 (defn counter 
   ([start_value]  (let [n (atom start_value)]

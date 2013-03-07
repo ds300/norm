@@ -30,14 +30,8 @@
 (set! *warn-on-reflection* true)
 
 
-(defn inc-freq! [transient_map k]
-  "Takes a transient map whose values are numbers and a key k,
-  and increments the number specified by k, or makes it 1 if not
-  present."
-  (assoc! transient_map k (inc (transient_map k 0))))
-
 (defn count-corpus-words!
-  "countes the words in the given input streams.
+  "counts the words in the given input streams.
   returns a seq of [word freq] pairs"
   [in]
   (let [word_freqs* (utils/atomised-map-counter)
@@ -98,32 +92,6 @@
       (into #{} (flatten (seq oov_cs_map)))
       (repeatedly #(atom {})))))
 
-
-(defn feature-id! 
-  "Takes a ref containing a map of feature ids, a ref containing
-  a vector of feature frequencies, and a feature. Returns
-  a unique id for the feature. If the feature has not been
-  seen before, it adds an entry in feature_ids* and an atom containing
-  the value 0 in feature_freqs*."
-  [feature_ids* feature_freqs* feature]
-  (or
-    ; try to read the id without setting up a transaction first
-    (get-in @feature_ids* feature)
-    ; it's not in there so set up a transaction
-    (dosync
-      ; it might have been inserted by some other thread before
-      ; this transaction got set up so check that first
-      (or
-        (get-in @feature_ids* feature)
-        ; its still not in there, so insert it and make a new
-        ; counter atom in feature_freqs*, then return the id
-        (do
-          (commute feature_freqs* conj (atom 0))
-          (let [id (count @feature_ids*)]
-            (alter feature_ids* assoc-in feature (count @feature_ids*))
-            id))))))
-
-
 (defn context-left
   "returns indexed left n-gram context for the token at position i."
   [n_gram_order window_size grams i]
@@ -154,26 +122,32 @@
   (let [tokens (words/tokenise (.toLowerCase line))
         ngrams (words/n-grams n_gram_order (map iv_ids tokens))]
     (doseq [[word i] (map vector tokens (range))]
-      ; only extract context for relevant words
       (when (ctx-acc* word)
-        (doseq [feature (->> (context n_gram_order window_size ngrams i)
-                          (filter no-nils?) ; make sure all context words are IV
-                          (map feature-id*))]
-          (swap! (feature-freqs* feature) inc)
-          (swap! (ctx-acc* word) update-in [feature] (fnil inc 0)))))))
+        (doseq [fid (->> (context n_gram_order window_size ngrams i)
+                      (filter no-nils?)
+                      (map feature-id*))]
+          (swap! (@feature-freqs* fid) inc)
+          (swap! (ctx-acc* word) update-in [fid] (fnil inc 0)))))))
 
 (defn extract-all-context!
   "Extracts all contextual features from the lines in in for all oov and iv
   words in oov_cs_map"
-  [n_gram_order window_size iv_ids oov_cs_map in]
-  (let [ctx-acc* (get-context-accumulator-map oov_cs_map)
-        feature-freqs* (ref [])
-        id!_  (partial feature-id! (ref {}) feature-freqs*)
-        store!_ (partial store-context! n_gram_order window_size iv_ids ctx-acc* feature-freqs* id!_)]
+  [n_gram_order window_size iv_ids ctx-acc* in]
+  (let [feature-freqs* (atom [])
+        feature-id*    (utils/unique-id-getter 0 (fn [n]
+
+                                                   (swap! feature-freqs* #(if (>= n (count %))
+                                                                            (conj % (atom 0))
+                                                                            %))))
+        handle-tweet!  (fn [line]
+                         (store-context! n_gram_order window_size iv_ids
+                           ctx-acc* feature-freqs* feature-id* line))]
     ;; do the actual computation
-    (dorun (utils/pmapall-chunked 20 store!_ (filter not-empty (line-seq in))))
+    (dorun (utils/pmapall-chunked 500 handle-tweet! (filter not-empty (line-seq in))))
     ;; return still-atmoised data structures
-    [ctx-acc* @feature-freqs*]))
+    @feature-freqs*)
+
+  )
 
 (defn to-sdv
   "converts a frequency distribution to a SparseDoubleVector
@@ -193,8 +167,9 @@
   to SparseDoubleVector objects with the specified cardinality.
   increases counter for each sdv created."
   [counter* cardinality all_context*]
-  (utils/pmapall #(do (swap! % to-sdv cardinality) (counter* 1))
-    (vals all_context*)))
+  (dorun
+    (utils/pmapall #(do (swap! % to-sdv cardinality) (counter* 1))
+      (vals all_context*))))
 
 
 
@@ -203,13 +178,13 @@
   objects, an oov word and it's confusion set, and returns a tuple of the oov 
   word and the item from its confusion set whose distributional proximity to
   the oov word is lowest (i.e. closest)"
-  [measure all_context* oov_word confusion_set]
+  [^AbstractProximity measure all_context* oov_word confusion_set]
   (let [oov_context @(all_context* oov_word)
         left_result (.left measure oov_context)
         candidates  (for [iv_word confusion_set]
-                      (let [iv_context@(all_context* iv_word)
+                      (let [iv_context @(all_context* iv_word)
                             right_result (.right measure iv_context)
-                            shared_result (.shared ^AbstractProximity measure oov_context iv_context)
+                            shared_result (.shared measure oov_context iv_context)
                             combined (.combine measure shared_result left_result right_result)]
                         [iv_word combined]))
         [top_candidate _] (first (sort-by second candidates))]
@@ -220,12 +195,13 @@
   "makes distributionally similar pairs for all keys of oov_cs_map.
   increments counter for each word processed."
   [counter* oov_cs_map all_context* measure]
-  (filter identity
-    (utils/pmapall 
-      (fn [[oov_word confusion_set]]
-        (counter* 1)
-        (get-pair measure all_context* oov_word confusion_set))
-      oov_cs_map)))
+  (doall
+    (filter identity
+      (utils/pmapall
+          (fn [[oov_word confusion_set]]
+            (counter* 1)
+            (get-pair measure all_context* oov_word confusion_set))
+          oov_cs_map))))
 
 (defn rank-pairs
   "Sorts a collection of pairs of strings according to their
@@ -285,12 +261,15 @@
         ;; we don't need these anymore
         (reset! oov_words nil)
         (reset! iv_trie nil)
+
+        (io/doing-done "Generating context accumulator map"
+          (reset! all_context* (get-context-accumulator-map @oov_cs_map)))
         
         (io/open [:r in twt_path]
           (println "Extracting all contextual features...")
           (progress/monitor [#(str "\t" (.progress in)) 2000]
-            (utils/assign! [all_context* feature_freqs]
-              (extract-all-context! n_gram_order window_size iv_ids @oov_cs_map in))))
+            (reset! feature_freqs
+              (extract-all-context! n_gram_order window_size iv_ids @all_context* in))))
 
         (let [counter* (utils/counter)]
           (println "Converting feature frequency distributions to sparse vectors...")
@@ -315,7 +294,8 @@
         (reset! oov_cs_map nil)
         (reset! feature_freqs nil)
 
-        (println "Ranking pairs, applying cutoff, and writing to disk...")
+
         (io/open [:w out io/OUT_PATH]
-          (io/spit-tsv out (take pair_rank_cutoff (rank-pairs @pairs))))))))
+          (io/doing-done "Ranking pairs, applying cutoff, and writing to disk..."
+            (io/spit-tsv out (take pair_rank_cutoff (rank-pairs @pairs)))))))))
 
