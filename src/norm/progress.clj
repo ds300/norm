@@ -12,7 +12,7 @@
   (Thread/sleep SLEEP_INTERVAL)
   (print "\r")
   (let [newstring (GET)]
-    (print (str newstring (spaces (- (count newstring) @LAST_STRING_LENGTH))))
+    (print (str newstring (spaces (- @LAST_STRING_LENGTH (count newstring)))))
     (.flush *out*)
     (reset! LAST_STRING_LENGTH (count newstring)))
   (if @ALIVE

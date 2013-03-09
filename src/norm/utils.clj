@@ -54,21 +54,13 @@
                               (assoc m k (+ start_value (count m))))))]
           (nids k)))
         ([k not_found]
-          (@ids k not_found)))))
-  ([start_value new_item_callback]
-    (let [ids (atom {})]
-      (fn 
-        ([] @ids)
-        ([k] (let [nids (swap! ids 
-                          (fn [m]
-                            (if (m k)
-                              m
-                              (do 
-                                (new_item_callback (+ start_value (count m)))
-                                (assoc m k (+ start_value (count m)))))))]
-          (nids k)))
-        ([k not_found]
           (@ids k not_found))))))
+
+(defn counted-fn [f atom_num]
+  (fn [& args]
+    (let [ret (apply f args)]
+      (swap! atom_num inc)
+      ret)))
 
 (defn counter 
   ([start_value]  (let [n (atom start_value)]

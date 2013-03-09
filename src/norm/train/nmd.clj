@@ -41,7 +41,7 @@
     (->> in
       line-seq
       (filter not-empty)
-      (utils/pmapall-chunked 500 process-tweet*)
+      (utils/pmapall-chunked 1000 process-tweet*)
       dorun)
 
     (for [[word freq_atom] (seq (word_freqs*))]
@@ -129,24 +129,33 @@
           (swap! (@feature-freqs* fid) inc)
           (swap! (ctx-acc* word) update-in [fid] (fnil inc 0)))))))
 
+(defn feature-id-getter! 
+  "Takes an an atom containing
+  a vector of feature frequencies. Returns a function that returns
+  a unique id for a given int-array feature. If the feature has not been
+  seen before, it adds an atom containing
+  the value 0 in feature_freqs*."
+  [feature_freqs*]
+  (let [id-getter (norm.jvm.IntVectorIdGetter.)
+        add_atom_callback (fn [_]
+                            (swap! feature_freqs* conj (atom 0)))]
+    (fn [ints]
+      (or (.get id-getter ints)
+          (.put id-getter ints add_atom_callback)))))
+
 (defn extract-all-context!
   "Extracts all contextual features from the lines in in for all oov and iv
   words in oov_cs_map"
   [n_gram_order window_size iv_ids ctx-acc* in]
   (let [feature-freqs* (atom [])
-        feature-id*    (utils/unique-id-getter 0 (fn [n]
-                                                   (swap! feature-freqs* #(if (>= n (count %))
-                                                                            (conj % (atom 0))
-                                                                            %))))
+        feature-id*    (feature-id-getter! feature-freqs*)
         handle-tweet!  (fn [line]
                          (store-context! n_gram_order window_size iv_ids
                            ctx-acc* feature-freqs* feature-id* line))]
     ;; do the actual computation
-    (dorun (utils/pmapall-chunked 500 handle-tweet! (filter not-empty (line-seq in))))
+    (dorun (pmapall-chunked 1000 handle-tweet! (filter not-empty (line-seq in))))
     ;; return still-atmoised data structures
-    @feature-freqs*)
-
-  )
+    @feature-freqs*))
 
 (defn to-sdv
   "converts a frequency distribution to a SparseDoubleVector
