@@ -61,7 +61,7 @@
   (let [model (Linear/loadModel (java.io.File. path))
         f-ids (into {} (io/parse-tsv (str path "-f-ids") read-string read-string))
         iv-ids (into {} (io/parse-tsv (str path "-iv-ids") identity read-string))]
-    (fn [gov dep off]
+    (fn [[gov dep off]]
       (let [v (sort (filter identity (map f-ids [[0 (iv-ids gov)] [1 (iv-ids dep)] off])))]
         ({1.0 "pos" 0.0 "neg"}
           (Linear/predict
@@ -79,7 +79,6 @@
         :nmd (into {} (io/parse-tsv path))
         :dict (trie/trie (map #(conj % 1) (io/parse-tsv path)))
         :dm-dict (trie/trie (map #(vector (first %) 1 (rest %)) (io/parse-tsv path)))
-        :nmd-g (into {} (io/parse-tsv path))
         :tlm (edu.berkeley.nlp.lm.io.LmReaders/readLmBinary path)
         :lksm (load-lksm path)
         :dpb (load-dpb path)))))

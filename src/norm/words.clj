@@ -1,6 +1,23 @@
 (ns norm.words
+  (:import [norm.jvm StringComparators])
   (:require [norm.trie :as trie]
             [clojure.string :as str]))
+
+(defn levenshtein [^String a ^String b]
+  (StringComparators/levenshteinDistance a b))
+
+(defn common-prefix-length [^String a ^String b]
+  (StringComparators/commonPrefixLength a b))
+
+(defn common-suffix-length [^String a ^String b]
+  (StringComparators/commonSuffixLength a b))
+
+(defn longest-common-subsequence [^String a ^String b]
+  (StringComparators/longestCommonSubsequence a b))
+
+(let [kernel (cc.mallet.types.StringKernel.)]
+  (defn ssk [^String a ^String b]
+    (.K kernel a b)))
 
 (defn remove-repetition [s]
   (-> s
@@ -48,7 +65,16 @@
     (min (+ i 1) (count coll))
     (min (+ i 1 window_size) (count coll))))
 
+(defn indexed-context [coll window_size i]
+  (let [l (context-left coll window_size i)
+        r (context-right coll window_size i)]
 
+    (into (mapv vector
+            (map - (rest (range)))
+            (reverse l))
+          (map vector
+            (rest (range))
+            r))))
 
 (defn raw-confusion-set [dict dm-dict lex-dist phon-dist word]
   (into []

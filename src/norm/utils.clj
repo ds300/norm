@@ -87,6 +87,10 @@
 
 (defn update-with [f m] (into {} (for [[k v] m] [k (f v)])))
 
+(defn take-percent [p coll]
+  (let [n (count coll)]
+    (take (int (-> n (/ 100) (* p))) coll)))
+
 (defn indexify 
   ([coll]
     (indexify 0 coll))

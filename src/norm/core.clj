@@ -3,6 +3,7 @@
             [clojure.tools.cli :as cli]
             [clojure.java.io :as jio]
             [norm.trie :as trie]
+            [norm.alise :as alise]
             [norm.clean :as clean]
             [norm.data :as data]
             [norm.io :as io]

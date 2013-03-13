@@ -29,7 +29,6 @@
 
 (set! *warn-on-reflection* true)
 
-
 (defn count-corpus-words!
   "counts the words in the given input streams.
   returns a seq of [word freq] pairs"
@@ -153,7 +152,7 @@
                          (store-context! n_gram_order window_size iv_ids
                            ctx-acc* feature-freqs* feature-id* line))]
     ;; do the actual computation
-    (dorun (pmapall-chunked 1000 handle-tweet! (filter not-empty (line-seq in))))
+    (dorun (utils/pmapall-chunked 1000 handle-tweet! (filter not-empty (line-seq in))))
     ;; return still-atmoised data structures
     @feature-freqs*))
 

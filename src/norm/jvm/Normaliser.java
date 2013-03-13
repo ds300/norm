@@ -9,7 +9,7 @@ public class Normaliser {
     this.normalise_token_list = normalise_token_list;
   }
 
-  private List<String> normalise(List<String> tkns) {
+  public List<String> normalise(List<String> tkns) {
     return (List<String>) normalise_token_list.invoke(tkns);
   }
 
