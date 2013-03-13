@@ -2,10 +2,11 @@
   "This module handles file i/o."
   (:require [clojure.data.json :as json]
             [clojure.java.io :as jio]
+            [norm.words :as words]
             [norm.config :as config]
             [norm.json])
   (:import [cmu.arktweetnlp Twokenize])
-  (:use [clojure.string :only (join)]))
+  (:use [clojure.string :only (join lower-case)]))
 
 (def ^:dynamic IN)
 (def ^:dynamic OUT_PATH)
@@ -101,7 +102,7 @@
     (.write out "\n")))
 
 (defn- consume-raw [line]
-  {"text" line "tokens" (into [] (Twokenize/tokenizeRawTweetText line))})
+  {"text" line "tokens" (into [] (words/tokenise-lower line))})
 
 (defn- raw-seq [^java.io.Reader in]
   (map consume-raw (line-seq-with-close in)))
@@ -113,7 +114,7 @@
   {"text" (join-tokens tokens) "tokens" tokens})
 
 (defn- tkn-seq [in]
-  (map consume-tkn (group-tkns (line-seq-with-close in))))
+  (map consume-tkn (group-tkns (map lower-case (line-seq-with-close in)))))
 
 (defn- consume-json [obj]
   (if (obj "tokens")
@@ -124,7 +125,7 @@
     (if-not (obj "text")
       ; if we can't find text or tokens, it is an error. throw exception.
       (throw (Exception. (str "Bad JSON object. No 'text' or 'tokens' field:\n" obj)))
-      (conj obj ["tokens" (into [] (Twokenize/tokenizeRawTweetText (obj "text")))]))))
+      (conj obj ["tokens" (into [] (words/tokenise-lower (obj "text")))]))))
 
 (defn- json-seq
   "Returns a lazy seq of tweet objects in the given stream"

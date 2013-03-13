@@ -5,6 +5,7 @@
             [norm.trie :as trie]
             [norm.alise :as alise]
             [norm.clean :as clean]
+            [norm.progress :as progress]
             [norm.data :as data]
             [norm.io :as io]
             [norm.train.nmd]
@@ -17,9 +18,6 @@
 
 (def ARGS (atom nil))
 
-
-
-
 (defn print-help []
   (println "usage etc lol"))
 
@@ -28,42 +26,31 @@
   (print-help)
   (System/exit 1))
 
-
-; (defn process-batch-args [input_file_name & args]
-;   (let [[opts _ _] (cli/cli args
-;     ["-i" "--input-format" "(json|raw|tkn)" :default "raw"]
-;     ["-o" "--output-format" "(json|raw|tkn) defaults to whichever input format is used"]
-;     ["-f" "--output-file" "the path of the output file. <input-path>.norm is used by default"])
-;         output_format (:output-format opts (:input-format opts))
-;         data_dir      (java.io.File. (:data-dir opts "./data"))
-;         input_stream  (io/prog-reader input_file_name)
-;         output_stream (jio/writer (:output-file opts (str input_file_name ".norm")))]
-;     (when-not (every? #{"json" "raw" "tkn"} [(:input-format opts) output_format])
-;       (fail "invalid file format(s)"))
-;     (if-not (.isDirectory data_dir)
-;       (fail "data directory does not exist")
-;       (let [resources (map (fn [[p f]] (f (str (.getAbsolutePath data_dir) p))) DATA_FILES)]
-;         [input_stream, output_stream, (:input-format opts), output_format, resources]))))
-
-
-
+(def normaliser-fns {
+  "simple" norm.alise/get-simple-normaliser-fn
+  "complex" norm.alise/get-complex-normaliser-fn
+  "duplex" norm.alise/get-duplex-normaliser-fn
+})
 
 (def commands {
-  ; "batch"
-  ; (fn [args]
-  ;   (let [[in, out, inf, outf, [NMD DICT]] (apply process-batch-args args)
-  ;         encode (io/encoders outf)]
-  ;     (defn normalise-token-list [tokens]
-  ;       (for [t tokens] (if (DICT t) t (if-let [r (NMD t)] r t))))
+  "batch"
+  (fn [args]
+    (let [[in_path out_path & others] args
+          inf (config/opt :batch :input-format)
+          outf (config/opt :batch :output-format)
+          encode (io/encoders outf)
+          normalise-token-list ((normaliser-fns (config/opt :batch :normaliser-type)))
+          normalise-tweet (fn [tweet]
+                            (assoc tweet "norm_tokens" (normalise-token-list (tweet "tokens"))))]
 
-  ;     (defn normalise-tweet [tweet]
-  ;       (assoc tweet "norm_tokens" (normalise-token-list (tweet "tokens"))))
-
-  ;     (when (= outf "json") (.write out "["))
-  ;     (dorun (map #(.write out %) (pmap encode (pmap normalise-tweet (io/get-stream inf in)))))
-  ;     (when (= outf "json") (.write out "]"))
-  ;     (shutdown-agents)
-  ;     (.close out)))
+      (io/open [:r in in_path
+                :w out (or out_path (str in_path ".norm"))]
+        (when (= outf "json") (.write out "["))
+        (progress/monitor [#(.progress in) 500]
+          (dorun 
+            (map (comp #(.write out %) encode)
+              (pmap normalise-tweet (io/get-stream inf in)))))
+        (when (= outf "json") (.write out "]")))))
   "train" 
     (fn [args]
       (let [[id & [outpath & extra]] args]

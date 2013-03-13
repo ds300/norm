@@ -79,7 +79,7 @@
 (defn complex-normalise [dict lksm get-cs td tkns]
   (vec
     (for [[i word] (map vector (range) tkns)]
-      (if (or (.contains dict word) (not (re-find #"\w[\w\-\d]*")))
+      (if (or (.contains dict word) (not (re-find #"^\w[\w\-\d']*$")))
         word
         (normalise-token dict lksm get-cs td tkns i)))))
 
@@ -100,6 +100,9 @@
 (defn get-simple-normaliser-fn []
   (partial simple-normalise (data/load- :nmd)))
 
+(defn get-duplex-normaliser-fn []
+  (comp (get-complex-normaliser-fn) (get-simple-normaliser-fn)))
+
 (defn ^{:static true} -getComplexNormaliser []
   (norm.jvm.Normaliser. (get-complex-normaliser-fn)))
 
@@ -107,4 +110,4 @@
   (norm.jvm.Normaliser. (get-simple-normaliser-fn)))
 
 (defn ^{:static true} -getDuplexNormaliser []
-  (norm.jvm.Normaliser. (comp (get-complex-normaliser-fn) (get-simple-normaliser-fn))))
+  (norm.jvm.Normaliser. (get-duplex-normaliser-fn)))
