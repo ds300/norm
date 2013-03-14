@@ -1,0 +1,6 @@
+:data {
+  :paths {
+;    :twt "data/general.english.filtered"
+  }
+}
+:confusion-sets {:lex-dist 2}

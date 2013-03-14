@@ -3,15 +3,6 @@
         [norm.utils :only (map-merge update-with)])
   (:gen-class))
 
-; First we're trying to get the directory in which this program is being executed.
-(def ^:private EX_DIR (->> "config.edn"
-                        resource
-                        str
-                        (re-find #"/.*$")
-                        as-file
-                        (.getParentFile)
-                        (.getParent)))
-
 ; config files stored as implicit map, so need to put {}s around it after slurping
 (defn bracktise
   "converts s to {s\\n}"
@@ -35,18 +26,25 @@
 ; load default config
 (def OPTS (atom (load-config (resource "config.edn"))))
 
+; load the user's config file from home dir if it exists
+(let [home_dir (System/getProperty "user.home")
+      home_config_file (as-file (str home_dir "/.norm-config.edn"))]
+  (when (.isFile home_config_file)
+    (let [hcfg (atom (load-config home_config_file))]
+      (when-let [datadir (get-in hcfg [:data :dir])]
+        (swap! hcfg assoc-in [:data :dir] (ensure-absolute home_dir datadir)))
+      (when-let [paths (get-in hcfg [:data :paths])]
+        (swap! hcfg assoc-in [:data :paths]
+          (update-with (partial ensure-absolute home_dir) paths)))
+      (swap! OPTS #(merge-with map-merge % hcfg)))))
 
-; load the user's config file if it exists
-(let [user_config_file (as-file (str EX_DIR "/config.edn"))]
+
+; load the user's config file from cwd if it exists
+(let [user_config_file (as-file ("norm-config.edn"))]
   (when (.isFile user_config_file)
     ; superimpose user config over default
-    (swap! OPTS #(merge-with map-merge % (load-config user_config_file)))
-    ; make user_config specified paths relative to ex_dir
-    (swap! OPTS update-in [:data :paths] #(update-with (partial ensure-absolute EX_DIR) %))))
+    (swap! OPTS #(merge-with map-merge % (load-config user_config_file)))))
 
-
-;make data path absolute
-(swap! OPTS update-in [:data :dir] (partial ensure-absolute EX_DIR))
 
 (defn opt
   "Get an option from the config map. ks are clojure keywords"

@@ -7,8 +7,7 @@
     :name "norm.Norm"
     :methods [^{:static true}[getComplexNormaliser [] norm.jvm.Normaliser]
               ^{:static true}[getSimpleNormaliser [] norm.jvm.Normaliser]
-              ^{:static true}[getDuplexNormaliser [] norm.jvm.Normaliser]])
-  )
+              ^{:static true}[getDuplexNormaliser [] norm.jvm.Normaliser]]))
 
 (defn at-least [n pred [x & xs :as coll]]
   (cond
@@ -44,7 +43,8 @@
   (->> cs
     (map (fn [candidate] [(f candidate original) candidate]))
     sort
-    (map last)
+    (group-by first)
+    (map (fn [group] (map last group)))
     (map vector (range))))
 
 (defn higher-is-better [f]
@@ -54,8 +54,9 @@
   ;; use only word similarity
   (let [csmap (atom (zipmap cs (repeat 0)))
         update-rank (fn [f]
-                      (doseq [[rank candidate] (rank-by f cs (tkns i))]
-                        (swap! csmap update-in [candidate] #(+ % rank))))]
+                      (doseq [[rank candidates] (rank-by f cs (tkns i))]
+                        (doseq [candidate candidates]
+                          (swap! csmap update-in [candidate] #(+ % rank)))))]
     (dorun
       (map update-rank
         [words/levenshtein
