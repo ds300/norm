@@ -40,7 +40,7 @@
 
 
 ; load the user's config file from cwd if it exists
-(let [user_config_file (as-file ("norm-config.edn"))]
+(let [user_config_file (as-file "norm-config.edn")]
   (when (.isFile user_config_file)
     ; superimpose user config over default
     (swap! OPTS #(merge-with map-merge % (load-config user_config_file)))))
