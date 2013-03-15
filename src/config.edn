@@ -19,6 +19,9 @@
 
 :buffer-size 10000000
 
+:dict-include ["retweet" "followback" "lol" "lmao" "nigga"]
+
+
 :train {
   :nmd {
     :post-rank-cutoff 30 ; percent

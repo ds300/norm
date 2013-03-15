@@ -17,4 +17,5 @@
                  [de.bwaldvogel/liblinear "1.92"]]
   :repositories {"byblo" "http://kungf.eu:8081/nexus/content/groups/public/"}
   :java-source-paths ["src/norm/jvm/"]
+  :javac-options ["-target" "1.6" "-source" "1.6"]
   :main norm.core)

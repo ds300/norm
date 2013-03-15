@@ -27,7 +27,6 @@
     0 nil
     1 (first coll)
     (let [[[c1 f1] [c2 f2] & others] (sort-by (comp - second) (frequencies coll))]
-      (prn [c1 f1] [c2 f2])
       (.flush *out*)
       (when (or (not f2) (> f1 f2)) c1))))
 
@@ -41,10 +40,9 @@
 
 (defn rank-by [f cs original]
   (->> cs
-    (map (fn [candidate] [(f candidate original) candidate]))
+    (group-by (partial f original))
     sort
-    (group-by first)
-    (map (fn [group] (map last group)))
+    (map last)
     (map vector (range))))
 
 (defn higher-is-better [f]

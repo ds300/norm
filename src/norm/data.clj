@@ -70,6 +70,10 @@
               (mapv #(FeatureNode. % 1.0) v)
             )))))))
 
+(defn load-dict [path]
+  (let [fromfile (trie/trie (map #(conj % 1) (io/parse-tsv path)))]
+    (reduce conj fromfile (map vector (config/opt :dict-include) (repeat 1)))))
+
 (defn load-
   "loads the file specified by the id."
   [id]
@@ -77,7 +81,7 @@
     (io/doing-done (str "Loading " id " from " path)
       (case id
         :nmd (into {} (io/parse-tsv path))
-        :dict (trie/trie (map #(conj % 1) (io/parse-tsv path)))
+        :dict (load-dict path)
         :dm-dict (trie/trie (map #(vector (first %) 1 (rest %)) (io/parse-tsv path)))
         :tlm (edu.berkeley.nlp.lm.io.LmReaders/readLmBinary path)
         :lksm (load-lksm path)
