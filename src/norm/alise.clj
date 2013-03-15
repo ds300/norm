@@ -54,7 +54,7 @@
   ;; use only word similarity
   (let [csmap (atom (zipmap cs (repeat 0)))
         update-rank (fn [f]
-                      (doseq [[rank candidates] (rank-by f cs (tkns i))]
+                      (doseq [[rank candidates] (rank-by f cs (nth tkns i))]
                         (doseq [candidate candidates]
                           (swap! csmap update-in [candidate] #(+ % rank)))))]
     (dorun
@@ -75,14 +75,15 @@
   (let [cs (get-cs tkns i)]
     (if (ill-formed? dict lksm td cs tkns i)
       (choose-candidate cs tkns i)
-      (tkns i))))
+      (nth tkns i))))
 
 (defn complex-normalise [dict lksm get-cs td tkns]
-  (vec
-    (for [[i word] (map vector (range) tkns)]
-      (if (or (.contains dict word) (not (re-find #"^\w[\w\-\d']*$" word)))
-        word
-        (normalise-token dict lksm get-cs td tkns i)))))
+  (let [tkns (vec tkns)]
+    (vec
+      (for [[i word] (map vector (range) tkns)]
+        (if (or (.contains dict word) (not (re-find #"^\w[\w\-\d']*$" word)))
+          word
+          (normalise-token dict lksm get-cs td tkns i))))))
 
 (defn get-complex-normaliser-fn []
   (data/load-and-bind [:nmd :dict :lksm :tlm :dm-dict]

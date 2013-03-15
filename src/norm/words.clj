@@ -84,7 +84,7 @@
 
 ; TODO: generalise this for window size maybe?
 (defn lm-ranked-confusion-set [lm get-cs tokens i]
-  (let [cs            (get-cs (tokens i))
+  (let [cs            (get-cs (nth tokens i))
         ranks         (atom (into {} (map vector cs (repeat 0))))
         lctx          (context-left tokens 2 i)
         rctx          (context-right tokens 2 i)
