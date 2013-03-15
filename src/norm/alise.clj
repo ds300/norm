@@ -80,7 +80,7 @@
 (defn complex-normalise [dict lksm get-cs td tkns]
   (vec
     (for [[i word] (map vector (range) tkns)]
-      (if (or (.contains dict word) (not (re-find #"^\w[\w\-\d']*$")))
+      (if (or (.contains dict word) (not (re-find #"^\w[\w\-\d']*$" word)))
         word
         (normalise-token dict lksm get-cs td tkns i)))))
 
