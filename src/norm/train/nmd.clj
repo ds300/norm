@@ -29,13 +29,16 @@
 
 (set! *warn-on-reflection* true)
 
+(defn word? [^String s]
+  (re-matches #"\d?[a-z]+[a-z0-9]*'?[a-z]+" s))
+
 (defn count-corpus-words!
   "counts the words in the given input streams.
   returns a seq of [word freq] pairs"
   [in]
   (let [word_freqs* (utils/atomised-map-counter)
         process-tweet* (fn [line]
-                         (doseq [word (words/word-tokenise line)]
+                         (doseq [word (filter word? (words/tokenise (.toLowerCase line)))]
                            (word_freqs* word 1)))]
     (->> in
       line-seq

@@ -18,4 +18,9 @@
   :repositories {"byblo" "http://kungf.eu:8081/nexus/content/groups/public/"}
   :java-source-paths ["src/norm/jvm/"]
   :javac-options ["-target" "1.6" "-source" "1.6"]
+  :profiles {
+    :dev {
+      :dependencies [[midje "1.5.0"]]
+    }
+  }
   :main norm.core)
