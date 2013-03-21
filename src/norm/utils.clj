@@ -1,7 +1,9 @@
 (ns norm.utils
   (:require [clojure.walk]))
 
-(defn pmap-chunked [n f coll]
+(defn pmap-chunked
+  "maps f over coll in chunks of size n, to reduce concurrency overhead"
+  [n f coll]
   (apply concat 
     (pmap #(doall (map f %)) (partition-all n coll))))
 
@@ -17,6 +19,15 @@
   (when (first s)
     (lazy-seq
       (cons (first s) (unchunk (next s))))))
+
+(defn at-least
+  "returns true iff n elements in coll satisfy pred"
+  [n pred [x & xs :as coll]]
+  (cond
+    (<= n 0)         true
+    (not (seq coll)) false
+    (pred x)         (recur (dec n) pred xs)
+    :otherwise       (recur n pred xs)))
 
 (defn pmapall [f coll]
   (let [num_threads (.. Runtime getRuntime availableProcessors)
@@ -78,7 +89,7 @@
 (defn atomised-map-counter
   ([start_value]  (let [m (atom {})]
                     (fn ([] @m)
-                        ([k] @(@m k))
+                        ([k] (when-let [a (@m k)] @a))
                         ([k i] 
                           (if-let [a (@m k)]
                             (swap! a #(+ % i))
@@ -96,26 +107,6 @@
     (indexify 0 coll))
   ([start coll]
     (map vector (iterate inc start) coll)))
-
-(defmacro let-partial
-  "macro to make assigning partial functions a little sexier.
-  e.g.  (let-partial [(foo arg1 arg2)
-                      (bar arg4)]
-          (foo arg3)
-          (bar))
-  expands to
-        (let [foo (partial foo arg1 arg2)
-              bar (partial bar arg4)]
-          (foo arg3)
-          (bar))"
-  [[& forms] & body]
-  `(clojure.core/let
-    ~(apply vector
-      (mapcat
-        (fn [[f & args :as things]]
-          [f (cons partial things)])
-        forms))
-    (do ~@body)))
 
 (defmacro pfor [bindings & body]
   (case (count (take 2 bindings))

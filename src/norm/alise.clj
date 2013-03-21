@@ -9,13 +9,6 @@
               ^{:static true}[getSimpleNormaliser [] norm.jvm.Normaliser]
               ^{:static true}[getDuplexNormaliser [] norm.jvm.Normaliser]]))
 
-(defn at-least [n pred [x & xs :as coll]]
-  (cond
-    (<= n 0)         true
-    (not (seq coll)) false
-    (pred x)         (recur (dec n) pred xs)
-    :otherwise       (recur n pred xs)))
-
 (defn form-exemplars [dict candidate tkns i]
   (filter identity
     (for [[off gov] (words/indexed-context tkns 3 i)]
@@ -36,7 +29,7 @@
 (defn ill-formed? [dict lksm td cs tkns i]
   (let [exemplars_list (for [w cs]
                          (form-exemplars dict w tkns i))]
-    (at-least td #(= "pos" %) (map #(predict lksm %) exemplars_list))))
+    (utils/at-least td #(= "pos" %) (map #(predict lksm %) exemplars_list))))
 
 (defn rank-by [f cs original]
   (->> cs

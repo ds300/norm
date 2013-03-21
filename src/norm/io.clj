@@ -69,24 +69,24 @@
 (defn lines-in
   "Returns a lazy seq of the lines in the specified file.
   closes the file when all lines have been read."
-  [filename]
-  (line-seq-with-close (jio/reader filename)))
+  [f]
+  (line-seq-with-close (jio/reader f)))
 
 (defn by-lines
-  "Returns a lazy seq of func applied to the lines in the specified file,
+  "Returns a lazy seq of func applied to the lines in the specified file/reader,
   ignoring blank lines. closes the file when all lines have been read."
-  [filename func]
-  (map func (filter not-empty (lines-in filename))))
+  [f func]
+  (map func (filter not-empty (lines-in f))))
 
 
 (defn parse-tsv
-  "takes lines from filename, splits them on \\t,
-  then applies funcs to them. i.e. with file:
+  "takes lines from f (anything that can be passed to clojure.java.io/reader),
+  splits them on \\t, then applies funcs to them. i.e. with file:
        hello\t3
-  calling (parse-tsv filename identity #(Integer. ))
+  calling (parse-tsv f identity #(Integer. ))
   yields ([\"hello\" 3])"
-  [filename & funcs]
-  (by-lines filename
+  [f & funcs]
+  (by-lines f
     (fn [line]
       (mapv
         (fn [f v] (f v))
