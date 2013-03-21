@@ -19,6 +19,7 @@
   :java-source-paths ["src/norm/jvm/"]
   :javac-options ["-target" "1.6" "-source" "1.6"]
   :profiles {
+    :user {:plugins [[lein-midje "3.0.0"]]}
     :dev {
       :dependencies [[midje "1.5.0"]]
     }

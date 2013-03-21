@@ -13,12 +13,24 @@ import clojure.lang.MapEntry;
 import clojure.lang.IPersistentCollection;
 import clojure.lang.PersistentVector;
 import clojure.lang.ISeq;
+import clojure.lang.IObj;
 import clojure.lang.Seqable;
 import clojure.lang.AFn;
 import clojure.lang.IFn;
 
-public class Trie extends AFn implements IPersistentMap{
+public class Trie extends AFn implements IPersistentMap, IObj{
   private static final List<String> empty_list = new ArrayList<String>(0);
+
+  private IPersistentMap metadata;
+
+  public IObj withMeta(IPersistentMap meta) {
+    Trie t = new Trie(this);
+    t.metadata = meta;
+    return t;
+  }
+
+  public IPersistentMap meta () { return this.metadata; }
+
 
   public  final long     _count;
   public  final long     _freq;

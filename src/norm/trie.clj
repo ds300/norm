@@ -36,8 +36,8 @@
     (reduce #(.merge %1 %2 f) ts)))
 
 (defn find-nearest
-  ([t s] (find-nearest t s 1))
-  ([t s n] (into [] (.findNearest t s n 0))))
+  ([t s] (first (find-nearest t s 1)))
+  ([t s n] (into [] (.findNearest t s n (Integer/MAX_VALUE)))))
 
 (defn find-within
   [t s d]

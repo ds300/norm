@@ -66,8 +66,8 @@
       first
       first)))
 
-(defn simple-normalise [nmd tkns]
-  (mapv #(nmd % %) tkns))
+(defn simple-normalise [dict nmd tkns]
+  (mapv #(if (.contains dict %) % (nmd % %)) tkns))
 
 (defn normalise-token [dict lksm get-cs td tkns i]
   (let [cs (get-cs tkns i)]
@@ -83,22 +83,29 @@
           word
           (normalise-token dict lksm get-cs td tkns i))))))
 
+(defn get-cs-getter [dict dm-dict tlm lex-dist phon-dist percent-cutoff]
+  (let [get-raw-cs (partial words/raw-confusion-set dict dm-dict lex-dist phon-dist)]
+    (fn [tkns i]
+      (utils/take-percent percent-cutoff
+        (words/lm-ranked-confusion-set tlm get-raw-cs tkns i)))))
+
+
 (defn get-complex-normaliser-fn []
-  (data/load-and-bind [:nmd :dict :lksm :tlm :dm-dict]
-    (let [lex-dist       (config/opt :confusion-sets :lex-dist)
-          phon-dist      (config/opt :confusion-sets :phon-dist)
-          percent-cutoff (config/opt :confusion-sets :post-rank-cutoff)
-          td             1
-          get-raw-cs  (partial words/raw-confusion-set data/DICT data/DM-DICT lex-dist phon-dist)
-          tlm         data/TLM ; because we use it in a closure, if we use data/TLM directly it will
-                               ; be unbound by the time it is used.
-          get-cs      (fn [tkns i]
-                        (utils/take-percent percent-cutoff
-                          (words/lm-ranked-confusion-set tlm get-raw-cs tkns i)))]
-      (partial complex-normalise data/DICT data/LKSM get-cs td))))
+  (data/load-and-bind [:dict :lksm :tlm :dm-dict]
+    (partial complex-normalise
+      data/DICT
+      data/LKSM
+      (get-cs-getter
+        data/DICT
+        data/DM-DICT
+        data/TLM
+        (config/opt :confusion-sets :lex-dist)
+        (config/opt :confusion-sets :phon-dist)
+        (config/opt :confusion-sets :post-rank-cutoff))
+      1)))
 
 (defn get-simple-normaliser-fn []
-  (partial simple-normalise (data/load- :nmd)))
+  (partial simple-normalise (data/load- :dict) (data/load- :nmd)))
 
 (defn get-duplex-normaliser-fn []
   (comp (get-complex-normaliser-fn) (get-simple-normaliser-fn)))

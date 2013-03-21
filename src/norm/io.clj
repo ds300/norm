@@ -102,13 +102,13 @@
     (.write out "\n")))
 
 (defn- consume-raw [line]
-  {"text" line "tokens" (into [] (words/tokenise-lower line))})
+  {"text" line "tokens" (vec (words/tokenise-lower line))})
 
 (defn- raw-seq [^java.io.Reader in]
   (map consume-raw (line-seq-with-close in)))
 
 (defn- group-tkns [lines]
-  (filter #(not= '("") %) (partition-by empty? lines)))
+  (vec (filter #(not= '("") %) (partition-by empty? lines))))
 
 (defn- consume-tkn [tokens]
   {"text" (join-tokens tokens) "tokens" tokens})
@@ -125,7 +125,7 @@
     (if-not (obj "text")
       ; if we can't find text or tokens, it is an error. throw exception.
       (throw (Exception. (str "Bad JSON object. No 'text' or 'tokens' field:\n" obj)))
-      (conj obj ["tokens" (into [] (words/tokenise-lower (obj "text")))]))))
+      (conj obj ["tokens" (vec (words/tokenise-lower (obj "text")))]))))
 
 (defn- json-seq
   "Returns a lazy seq of tweet objects in the given stream"

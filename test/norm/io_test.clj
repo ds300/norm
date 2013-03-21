@@ -1,91 +1,83 @@
 (ns norm.io-test
-  (:use clojure.test
-        norm.io))
+  (:use midje.sweet norm.io))
 
-(def expected_raw [
-  {
-    "text" "this is a tweet! hahaha"
-    "tokens" ["this" "is" "a" "tweet" "!" "hahaha"]
-  }
-  {
-    "text" "so is this! #lolzorz"
-    "tokens" ["so" "is" "this" "!" "#lolzorz"]
-  }
-  {
-    "text" "RT: @coffee_face u is well tasty face #luvcoffee"
-    "tokens" ["RT" ":" "@coffee_face" "u" "is" "well" "tasty" "face" "#luvcoffee"]
-  }
-])
+(defn string-reader [string]
+  (-> string
+    java.io.StringReader.
+    java.io.BufferedReader.))
 
-(def expected_tkn [
-  {
-    "text" "this is a tweet ! hahaha"
-    "tokens" ["this" "is" "a" "tweet" "!" "hahaha"]
-  }
-  {
-    "text" "so is this ! #lolzorz"
-    "tokens" ["so" "is" "this" "!" "#lolzorz"]
-  }
-  {
-    "text" "RT : @coffee_face u is well tasty face #luvcoffee"
-    "tokens" ["RT" ":" "@coffee_face" "u" "is" "well" "tasty" "face" "#luvcoffee"]
-  }
-])
+(facts "about raw streams"
+  (fact "raw strams take a BufferedReader over newline-separated tweets and tokenises them, putting the result in a map with the original text"
+    (first (get-stream "raw" (string-reader "a tweet\n")))
+    => {"text" "a tweet", "tokens" ["a" "tweet"]})
 
-(def expected_json [
-  {
-    "text" "this is a tweet! hahaha"
-    "tokens" ["this" "is" "a" "tweet" "!" "hahaha"]
-  }
-  {
-    "text" "so is this! #lolzorz"
-    "tokens" ["so" "is" "this" "!" "#lolzorz"]
-    "another_field" "i get carried along"
-  }
-  {
-    "text" "RT: @coffee_face u is well tasty face #luvcoffee"
-    "tokens" ["These" "tokens" "be" "different" "yo" "!"]
-  }
-  {
-    "text" "this just tokens"
-    "tokens" ["this" "just" "tokens"]
-  }
-])
+  (fact "it should also work without trailing newline"
+    (first (get-stream "raw" (string-reader "a tweet")))
+    => {"text" "a tweet", "tokens" ["a" "tweet"]})
 
-(defn equal-seqs? [& seqs]
-  (every? true?
-    (apply (partial map =) seqs)))
+  (fact "tweet objects are returned as a lazy seq"
+    (get-stream "raw" (string-reader "a tweet\nanother tweet!"))
+    => (lazy-seq [
+                   {"text" "a tweet", "tokens" ["a" "tweet"]}
+                   {"text" "another tweet!", "tokens" ["another" "tweet" "!"]}
+                 ])))
 
-(deftest raw-test
-  (testing "raw input works yes?"
-    (open [:r in "./test/norm/data/io.raw.txt"]
-      (is (equal-seqs? expected_raw (get-stream "raw" in))))))
+(facts "about tkn streams"
+  (fact "tkn streams take a BufferedReader over newline-separated tokens and concats them into tweet objects, with reconstituted text"
+    (first (get-stream "tkn" (string-reader "a\ntweet\n")))
+    => {"text" "a tweet", "tokens" ["a" "tweet"]})
 
-(deftest tkn-test
-  (testing "tkn input works yes?"
-    (open [:r in "./test/norm/data/io.tkn.txt"]
-      (is (equal-seqs? expected_tkn (get-stream "tkn" in))))))
+  (fact "it should also work without trailing newline"
+    (first (get-stream "tkn" (string-reader "a\ntweet")))
+    => {"text" "a tweet", "tokens" ["a" "tweet"]})
+  
+  (fact "tweet objects are returned as a lazy seq, but detokenisation is not intelligent. i.e. tokens are joined with spaces such that [\"hello\" \"!\"] => [\"hello !\"]"
+    (get-stream "tkn" (string-reader "a\ntweet\n\nanother\ntweet\n!"))
+    => (lazy-seq [
+                   {"text" "a tweet", "tokens" ["a" "tweet"]}
+                   {"text" "another tweet !", "tokens" ["another" "tweet" "!"]}
+                 ])))
 
-(deftest json-test
-  (testing "json input works yes?"
-    (open [:r in "./test/norm/data/io.json.txt"]
-    (is (equal-seqs? expected_json (get-stream "json" in))))))
+(facts "about json streams"
+  (fact "json streams take a BufferedReader over a json list of json tweet objects which must contain atleast one of the keys \"text\" or \"tokens\""
+    (first (get-stream "json" (string-reader "[{\"text\":\"a tweet\"}]")))
+    => {"text" "a tweet", "tokens" ["a" "tweet"]})
+  (fact "if tokens are provided, the text field doesn't get tokenised"
+    (first (get-stream "json" (string-reader "[{\"text\":\"a tweet\", \"tokens\": [\"foo\", \"bar\", \"quux\"]}]")))
+    => {"text" "a tweet", "tokens" ["foo" "bar" "quux"]})
+  (fact "similarly, if tokens are provided without text, the text field becomes the detokenised form of the given tokens."
+    (first (get-stream "json" (string-reader "[{\"tokens\": [\"foo\", \"bar\", \"quux\", \"!\"]}]")))
+    => {"text" "foo bar quux !", "tokens" ["foo" "bar" "quux" "!"]})
+  (fact "tweet objects are returned as a lazy seq"
+    (get-stream "json" (string-reader "[{\"tokens\": [\"foo\", \"bar\", \"quux\", \"!\"]}, {\"text\":\"a tweet\"}]"))
+    => (lazy-seq [{"text" "foo bar quux !", "tokens" ["foo" "bar" "quux" "!"]}
+                  {"text" "a tweet", "tokens" ["a" "tweet"]}])))
 
-(deftest spit-tsv-test
-  (testing "spit-tsv works yes?"
-    (let [wrt (java.io.StringWriter.)
-          data '(["some value" "another_value" "one more value"] [3 6 22])
-          expected "some value\tanother_value\tone more value\n3\t6\t22\n"]
-      (spit-tsv wrt data)
-      (is (=
-            (str wrt)
-            expected)))))
 
-(deftest parse-tsv-test
-  (testing "parse-tsv works yes?"
-    (let [rdr (java.io.StringReader. "monkeys are\t78\ntotally\t9304\tawesome\t4687\n")
-          expected [["monkeys are" 78] ["totally" 9304 "awesome" "4687"]]]
-      (is (equal-seqs?
-            expected
-            (parse-tsv rdr identity #(Integer. %)))))))
+(facts "about spit-tsv"
+  (fact "spit-tsv takes a java.io.Writer and a seq of seqs, and prints each inner seq as a tab-separated list followed by a linefeed."
+    (let [w (java.io.StringWriter.)]
+      (spit-tsv w [[:foo :bar :quux] [:cheese :is :the :best]])
+      (.toString w))
+    => ":foo\t:bar\t:quux\n:cheese\t:is\t:the\t:best\n")
+  
+  (fact "spit-tsv should not be used to encode strings which contain newlines or tabs"
+    (let [w (java.io.StringWriter.)]
+      (spit-tsv w [["this\nis" "bad\t!"]])
+      (vec (parse-tsv (string-reader (.toString w)))))
+    => [["this"] ["is" "bad" "!"]]))
+
+
+(facts "about parse-tsv"
+  (fact "parse-tsv takes anything which can be used by clojure.java.io/reader and returns
+         a lazy seq of vectors."
+    (parse-tsv (string-reader "hey\tthere\nmr\tsir"))
+    => (lazy-seq [["hey" "there"] ["mr" "sir"]]))
+
+  (fact "parse-tsv takes optional functions which are positionally called on the resulting vectors"
+    (parse-tsv (string-reader "teeth\t24\neyes\t2") identity #(Integer. %))
+    => (lazy-seq [["teeth" 24] ["eyes" 2]])
+
+    (doall (parse-tsv (string-reader "teeth\t24\neyes\t2\nhair\tfoo") identity #(Integer. %)))
+    => (throws NumberFormatException)))
 

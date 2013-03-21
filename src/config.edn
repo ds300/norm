@@ -25,7 +25,6 @@
 :train {
   :nmd {
     :post-rank-cutoff 30 ; percent
-    :freq-cutoff 10 ; DELETE THIS
     :min-freq 10
     :min-length 4
     :pair-rank-cutoff 40000
