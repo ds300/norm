@@ -148,3 +148,9 @@
     (merge-with map-merge m1 m2)
     m2))
 
+
+(defn mapply [f coll & colls]
+  (apply map
+    (fn [& args]
+      (conj (vec args) (apply f args)))
+    (cons coll colls)))

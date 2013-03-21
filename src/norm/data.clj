@@ -74,6 +74,11 @@
   (let [fromfile (trie/trie (map #(conj % 1) (io/parse-tsv path)))]
     (reduce conj fromfile (map vector (config/opt :dict-include) (repeat 1)))))
 
+(defn load-tlm [path]
+  (let [tlm (edu.berkeley.nlp.lm.io.LmReaders/readLmBinary path)]
+    (fn [tkns]
+      (.scoreSentence tlm tkns))))
+
 (defn load-
   "loads the file specified by the id."
   [id]
@@ -83,7 +88,7 @@
         :nmd (into {} (io/parse-tsv path))
         :dict (load-dict path)
         :dm-dict (trie/trie (map #(vector (first %) 1 (rest %)) (io/parse-tsv path)))
-        :tlm (edu.berkeley.nlp.lm.io.LmReaders/readLmBinary path)
+        :tlm (load-tlm path)
         :lksm (load-lksm path)
         :dpb (load-dpb path)))))
 

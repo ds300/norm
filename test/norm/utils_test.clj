@@ -118,3 +118,7 @@
   => {:a {:b {:c "yo"} :foo "quux"} :c "hi"}
   (map-merge {} {}) => {}
   (map-merge {} {:a "a"}) => {:a "a"})
+
+(fact "`mapply` is like map, but returns vectors including the original elements."
+  (mapply inc (range 3)) => [[0 1] [1 2] [2 3]]
+  (mapply + (range 3) (range 3)) => [[0 0 0] [1 1 2] [2 2 4]])

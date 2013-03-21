@@ -1,6 +1,7 @@
 (ns norm.words
   (:import [norm.jvm StringComparators])
   (:require [norm.trie :as trie]
+            [norm.utils :as utils]
             [clojure.string :as str]))
 
 (defn levenshtein [^String a ^String b]
@@ -56,22 +57,28 @@
   (mapv vec (partition n 1 sequence)))
 
 (defn context-left [coll window_size i]
-  (subvec coll
-    (max 0 (- i window_size))
-    (max 0 i)))
+  (if (seq coll)
+    (subvec coll
+      (max 0 (- i window_size))
+      (max 0 i))
+    []))
 
 (defn context-right [coll window_size i]
-  (subvec coll
-    (min (+ i 1) (count coll))
-    (min (+ i 1 window_size) (count coll))))
+  (if (seq coll)
+    (subvec coll
+      (min (+ i 1) (count coll))
+      (min (+ i 1 window_size) (count coll)))
+    []))
 
 (defn indexed-context [coll window_size i]
   (let [l (context-left coll window_size i)
         r (context-right coll window_size i)]
 
-    (into (mapv vector
-            (map - (rest (range)))
-            (reverse l))
+    (into (vec
+            (reverse
+              (map vector
+                (map - (rest (range)))
+                (reverse l))))
           (map vector
             (rest (range))
             r))))
@@ -82,30 +89,15 @@
       (mapcat dm-dict (trie/find-within dm-dict (double-metaphone word) phon-dist))
       (trie/find-within dict word lex-dist))))
 
-; TODO: generalise this for window size maybe?
+
 (defn lm-ranked-confusion-set [lm get-cs tokens i]
   (let [cs            (get-cs (nth tokens i))
-        ranks         (atom (into {} (map vector cs (repeat 0))))
-        lctx          (context-left tokens 2 i)
-        rctx          (context-right tokens 2 i)
+        lctx          (context-left tokens 1 i)
+        rctx          (context-right tokens 1 i)
         ; sort confusion set by the scores of sentences returned by lsfn
         ; in descending order of goodness
-        sort-         (fn [lsfn]
-                        (map last
-                          (sort
-                            (for [c cs]
-                              [(- (.scoreSentence lm (lsfn c))) c]))))
-        ; get [word rank] pairs for the confusion set
-        rank          (fn [lsfn]
-                        (map vector
-                          (sort- lsfn)
-                          (range)))
-        ; update the ranks atom with cs ranked by lsfn
-        update-ranks! (fn [lsfn]
-                       (swap! ranks (partial merge-with +) (into {} (rank lsfn))))]
-    ; (when (seq lctx)
-    ;   (update-ranks! #(conj lctx %)))
-    ; (when (seq rctx)
-    ;   (update-ranks! #(cons % (seq rctx))))
-    (update-ranks! #(filter identity [(last lctx) % (first rctx)]))
-    (map first (sort-by last @ranks))))
+        get-trigram   (fn [w] (into (conj lctx w) rctx))]
+    (->> cs
+      (utils/mapply (comp - lm get-trigram))
+      (sort-by last)
+      (map first))))
