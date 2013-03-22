@@ -2,8 +2,6 @@
   "a stream json parser"
   (:require [clojure.java.io :as jio]))
 
-
-
 (defn char-seq
   "Returns a lazy sequence of the characters from rdr."
   [^java.io.Reader rdr]
@@ -12,11 +10,9 @@
       (cons (char c) (lazy-seq (char-seq rdr)))
       (.close rdr))))
 
-
-
 (def SYMBOLS #{\[ \] \: \{ \} \,})
 
-(def NUM_CHARS #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9 \. \e \E})
+(def NUM_CHARS #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9 \. \e \E \-})
 
 (defn parse-number
   "Tries to parse a json-style number from a char seq."

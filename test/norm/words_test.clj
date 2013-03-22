@@ -56,8 +56,8 @@
     (raw-confusion-set dict dm-dict 1 0 "beans") => ["beats"]
     (into #{} (raw-confusion-set dict dm-dict 1 1 "beans")) => #{"beats" "bananas" "panninis"}))
 
-(fact "`lm-ranked-confusion-set` just takes a function that returns a confusion set for a word, then ranks that word based on its context with a language model."
-  (let [lm (fn [[w1 w2 w3]] (case w2 "beans" 0.5 "trees" 0.9 "hello" 1.0))
-        get-cs (fn [w] ["beans" "trees" "hello"])]
-    (lm-ranked-confusion-set lm get-cs ["some" "stupid" "tokens"] 1)
-    => ["hello" "trees" "beans"]))
+(fact "`lm-ranked-confusion-set` just takes a function that returns a confusion set for a word, then ranks that confusion set based on context with a language model."
+  (let [lm (fn [[w1 w2 w3]] (case w2 "stipend" 0.5 "stooped" 0.9 "stupid" 1.0))
+        get-cs (fn [w] ["stipend" "stooped" "stupid"])]
+    (lm-ranked-confusion-set lm get-cs ["some" "stoopid" "tokens"] 1) ;ranking "stupid"'s confusion set
+    => ["stupid" "stooped" "stipend"]))
