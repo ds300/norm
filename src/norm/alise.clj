@@ -41,11 +41,11 @@
 (defn higher-is-better [f]
   (comp - f))
 
-(defn choose-candidate [cs tkns i]
+(defn choose-candidate [cs orig]
   ;; use only word similarity
   (let [csmap (atom (zipmap cs (repeat 0)))
         update-rank (fn [f]
-                      (doseq [[rank candidates] (rank-by f cs (nth tkns i))]
+                      (doseq [[rank candidates] (rank-by f cs orig)]
                         (doseq [candidate candidates]
                           (swap! csmap update-in [candidate] #(+ % rank)))))]
     (dorun
@@ -65,7 +65,7 @@
 (defn normalise-token [dict lksm get-cs td tkns i]
   (let [cs (get-cs tkns i)]
     (if (ill-formed? dict lksm td cs tkns i)
-      (choose-candidate cs tkns i)
+      (choose-candidate cs (nth tkns i))
       (nth tkns i))))
 
 (defn complex-normalise [dict lksm get-cs td tkns]
