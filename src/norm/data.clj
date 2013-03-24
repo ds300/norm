@@ -14,23 +14,20 @@
   :tlm
   :lksm
   :nyt
-  :nmd-g
   :dpb
-  :ulm
+  :profiles
 ])
 
 (doseq [id (map (comp symbol clojure.string/upper-case name) FILES)]
-  (.setDynamic (intern 'norm.data id))
-  (config/declare-opt! :data :paths (keyword (clojure.string/lower-case id))))
+  (.setDynamic (intern 'norm.data id)))
 
 
 (defn get-path
   "get the path of a particular file (id should be a keyword)"
   [id]
-  (let [p (config/opt :data :paths id)]
-    (if (= p :undefined)
-      (str (config/opt :data :dir) "/" (name id))
-      p)))
+  (if-let [p (config/opt :data :paths id)]
+    p
+    (str (config/opt :data :dir) "/" (name id))))
 
 (defn atoi "make an integer of a" [a]
   (Integer. a))
@@ -71,8 +68,11 @@
             )))))))
 
 (defn load-dict [path]
-  (let [fromfile (trie/trie (map #(conj % 1) (io/parse-tsv path)))]
-    (reduce conj fromfile (map vector (config/opt :dict-include) (repeat 1)))))
+  (let [exclude   (config/opt :dict :exclude)
+        include   (seq (config/opt :dict :include))
+        from-file (filter not-empty (io/lines-in path))
+        all       (filter (complement exclude) (concat include from-file))]
+    (reduce conj (trie/trie) (map vector all (repeat 1)))))
 
 (defn load-tlm [path]
   (let [tlm (edu.berkeley.nlp.lm.io.LmReaders/readLmBinary path)]

@@ -19,7 +19,22 @@
 (def ARGS (atom nil))
 
 (defn print-help []
-  (println "usage etc lol"))
+  (println
+"USAGE
+=====
+    lein run <command> [options]
+
+commands are:
+    batch <input_path> <output_path>
+      if no output path is specified, input_path.out is used.
+    train <dataset> <output_path>
+      if no output path is speicfied, the default is used.
+    bootstrap
+      sets the whole system up. Requires TWT, NYT, and DICT.
+    clean <input_path> <output_path> <filter>+
+      Current available filters are english and duplicates
+
+use option -h or --help for a full list of options."))
 
 (defn fail [message]
   (println message)
@@ -94,14 +109,16 @@
   "I don't do a whole lot."
   [& args]
 
-  ; get paths from command line
-  (let [cmd_args (config/parse-opts args)]
+  ; get args from command line
+  (let [[cmd & args] (config/parse-cli-args! args)]
    
-
+    (when (config/opt :help)
+      (config/print-help)
+      (System/exit 0))
     ; now decide which command to dispatch to
-    (if-let [command-fn (commands (first cmd_args))]
-      (command-fn (rest cmd_args))
-      (fail (str "Unrecognised command: " (first @ARGS)))))
+    (if-let [command-fn (commands cmd)]
+      (command-fn args)
+      (fail (str "ERROR: Unrecognised command."))))
 
 
   (shutdown-agents))
