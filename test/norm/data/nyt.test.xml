@@ -1,0 +1,211 @@
+<FILE id="blah">
+<DOC id="blah2" type="story" >
+<HEADLINE>
+blah
+</HEADLINE>
+<DATELINE>
+blah
+</DATELINE>
+<TEXT>
+<P>
+blah
+</P>
+<P>
+blah
+</P>
+<P>
+blah
+</P>
+</TEXT>
+<sentences>
+  <sentence id="1">
+    <tokens>
+      <token id="1">
+        <word>Hello</word>
+      </token>
+      <token id="2">
+        <word>there</word>
+      </token>
+      <token id="3">
+        <word>my</word>
+      </token>
+      <token id="4">
+        <word>good</word>
+      </token>
+      <token id="5">
+        <word>sir</word>
+      </token>
+      <token id="6">
+        <word>!</word>
+      </token>
+    </tokens>
+    <parse>blah</parse>
+      <basic-dependencies>
+        <dep type="! -> root">
+          <governor>6</governor>
+          <dependent>0</dependent>
+        </dep>
+        <dep type="hello -> sir">
+          <governor>5</governor>
+          <dependent>1</dependent>
+        </dep>
+        <dep type="there -> hello">
+          <governor>1</governor>
+          <dependent>2</dependent>
+        </dep>
+        <dep type="my -> sir">
+          <governor>5</governor>
+          <dependent>3</dependent>
+        </dep>
+        <dep type="good -> sir">
+          <governor>5</governor>
+          <dependent>4</dependent>
+        </dep>
+        <dep type="sir -> root">
+          <governor>0</governor>
+          <dependent>5</dependent>
+        </dep>
+      </basic-dependencies>
+  </sentence>
+  <sentence id="2">
+    <tokens>
+      <token id="1">
+        <word>how</word>
+      </token>
+      <token id="2">
+        <word>are</word>
+      </token>
+      <token id="3">
+        <word>you</word>
+      </token>
+      <token id="4">
+        <word>?</word>
+      </token>
+    </tokens>
+      <basic-dependencies>
+        <dep type="? -> root">
+          <governor>0</governor>
+          <dependent>4</dependent>
+        </dep>
+        <dep type="how -> you">
+          <governor>3</governor>
+          <dependent>1</dependent>
+        </dep>
+        <dep type="are -> how">
+          <governor>1</governor>
+          <dependent>2</dependent>
+        </dep>
+        <dep type="you -> root">
+          <governor>0</governor>
+          <dependent>3</dependent>
+        </dep>
+      </basic-dependencies>
+  </sentence>
+</sentences>
+</DOC>
+
+<DOC id="blah3" type="story" >
+<HEADLINE>
+blah
+</HEADLINE>
+<DATELINE>
+blah
+</DATELINE>
+<TEXT>
+<P>
+blah
+</P>
+<P>
+blah
+</P>
+<P>
+blah
+</P>
+</TEXT>
+<sentences>
+  <sentence id="1">
+    <tokens>
+      <token id="1">
+        <word>Hello</word>
+      </token>
+      <token id="2">
+        <word>there</word>
+      </token>
+      <token id="3">
+        <word>my</word>
+      </token>
+      <token id="4">
+        <word>good</word>
+      </token>
+      <token id="5">
+        <word>sir</word>
+      </token>
+      <token id="6">
+        <word>!</word>
+      </token>
+    </tokens>
+    <parse>blah</parse>
+      <basic-dependencies>
+        <dep type="! -> root">
+          <governor>6</governor>
+          <dependent>0</dependent>
+        </dep>
+        <dep type="hello -> sir">
+          <governor>5</governor>
+          <dependent>1</dependent>
+        </dep>
+        <dep type="there -> hello">
+          <governor>1</governor>
+          <dependent>2</dependent>
+        </dep>
+        <dep type="my -> sir">
+          <governor>5</governor>
+          <dependent>3</dependent>
+        </dep>
+        <dep type="good -> sir">
+          <governor>5</governor>
+          <dependent>4</dependent>
+        </dep>
+        <dep type="sir -> root">
+          <governor>0</governor>
+          <dependent>5</dependent>
+        </dep>
+      </basic-dependencies>
+  </sentence>
+  <sentence id="2">
+    <tokens>
+      <token id="1">
+        <word>how</word>
+      </token>
+      <token id="2">
+        <word>are</word>
+      </token>
+      <token id="3">
+        <word>you</word>
+      </token>
+      <token id="4">
+        <word>?</word>
+      </token>
+    </tokens>
+      <basic-dependencies>
+        <dep type="? -> root">
+          <governor>0</governor>
+          <dependent>4</dependent>
+        </dep>
+        <dep type="how -> you">
+          <governor>3</governor>
+          <dependent>1</dependent>
+        </dep>
+        <dep type="are -> how">
+          <governor>1</governor>
+          <dependent>2</dependent>
+        </dep>
+        <dep type="you -> root">
+          <governor>0</governor>
+          <dependent>3</dependent>
+        </dep>
+      </basic-dependencies>
+  </sentence>
+</sentences>
+</DOC>
+</FILE>

@@ -106,7 +106,7 @@ use option -h or --help for a full list of options."))
 
 
 (defn -main
-  "I don't do a whole lot."
+  "Run the program."
   [& args]
 
   ; get args from command line

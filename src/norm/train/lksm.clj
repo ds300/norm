@@ -15,9 +15,8 @@
   the token at i + offset in tokens."
   [DICT tokens i]
   (let [dependent (tokens i)
-        lctx (map vector (iterate dec -1) (reverse (words/context-left tokens 3 i)))
-        rctx (map vector (iterate inc 1) (words/context-right tokens 3 i))]
-    (for [[offset governor] (filter #(.contains DICT (last %)) (concat lctx rctx))]
+        context   (words/indexed-context tokens 3 i)]
+    (for [[offset governor] (filter #(.contains DICT (last %)) context)]
       [true governor dependent offset])))
 
 (defn derive-negative-features
@@ -30,7 +29,7 @@
     [false gov word off]))
 
 (defn extract-features!
-  "Extracts features for the given token vector, where feature-ids* is
+  "Extracts features for the given line, where feature-ids* is
   a function that returns a unique id for features, iv-ids* is a function
   which returns unique ids for iv words, and get-confusion-set is a function
   which takes a token list and an index and returns an lm-ranked confusion set."

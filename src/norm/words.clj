@@ -57,6 +57,9 @@
   (mapv vec (partition n 1 sequence)))
 
 (defn context-left [coll window_size i]
+  (when-not (vector? coll)
+    (throw
+      (IllegalArgumentException. "context only works for vectors, yeah?")))
   (if (seq coll)
     (subvec coll
       (max 0 (- i window_size))
@@ -64,6 +67,9 @@
     []))
 
 (defn context-right [coll window_size i]
+  (when-not (vector? coll)
+    (throw
+      (IllegalArgumentException. "context only works for vectors, yeah?")))
   (if (seq coll)
     (subvec coll
       (min (+ i 1) (count coll))

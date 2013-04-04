@@ -35,7 +35,7 @@
                 ; so ignore root dependencies
                 (when (not= type "root") 
                   (try
-                    (let [i (Integer. (.trim a)) j (Integer. (.trim b)) offset (- j i) ]
+                    (let [i (Integer. (.trim a)) j (Integer. (.trim b)) offset (- i j) ]
                       (when (and 
                                ; ensure, just in case, that i and j are >= 0
                               (every? pos? [i j])

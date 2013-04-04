@@ -99,11 +99,11 @@
 (defopts :dict
   (defopt :include
     :default #{"retweet" "followback" "lol" "lmao" "haha" "rofl"}
-    :parse   #(clojure.string/split % ",")
+    :parse   #(clojure.string/split % #",")
     :merge   into)
   (defopt :exclude
     :default #{}
-    :parse   #(clojure.string/split % ",")
+    :parse   #(clojure.string/split % #",")
     :merge   into))
 
 (defopts :train

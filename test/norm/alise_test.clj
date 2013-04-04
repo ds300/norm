@@ -70,4 +70,8 @@
   (choose-candidate ["beans" "beers" "pleats" "bananas"] "beats")
   => "beans")
 
+(fact "`simple-normalise` replaces words in tkns with words in nmd, where possible"
+  (simple-normalise dict {"mr" "good"} ["hello" "there" "mr" "sir" "!"])
+  => ["hello" "there" "good" "sir" "!"])
+
 
