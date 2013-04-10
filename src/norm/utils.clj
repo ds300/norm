@@ -142,12 +142,10 @@
         de_ex (clojure.walk/postwalk-replace syms destructuring_expression)]
     `(clojure.core/let [~de_ex ~value] ~@(for [[x y] syms] `(clojure.core/reset! ~x ~y)))))
 
-
 (defn map-merge [m1 m2]
   (if (and (map? m1) (map? m2))
     (merge-with map-merge m1 m2)
     m2))
-
 
 (defn mapply [f coll & colls]
   (apply map

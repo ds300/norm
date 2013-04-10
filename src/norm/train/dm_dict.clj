@@ -3,10 +3,6 @@
            [norm.words :as words]
            [norm.io :as io]))
 
-(defn put-word-in-dm-dict [dm-dict word]
-  (let [dm_encoding (words/double-metaphone word)]
-    (update-in dm-dict [dm_encoding] conj word))) ;remember (conj nil thing) -> '(thing)
-
 (defn train! []
   (data/verify-readable! :dict)
 
@@ -15,7 +11,6 @@
       (io/spit-tsv out
         (map
           flatten
-          (reduce
-            put-word-in-dm-dict
-            {}
+          (group-by
+            words/double-metaphone
             (.words data/DICT)))))))

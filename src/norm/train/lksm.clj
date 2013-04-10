@@ -40,7 +40,7 @@
       (apply concat
         (for [i (range (count tokens))]
           (when (.contains DICT (tokens i))
-            (let [confusion_set (get-confusion-set tokens i)
+            (let [confusion_set (filter #(not= % (nth tokens i)) (get-confusion-set tokens i))
                   pos (extract-positive-features DICT tokens i)
                   neg (derive-negative-features pos confusion_set)]
               ;; get feature-ids* of iv-ids* to save space
@@ -105,7 +105,7 @@
 
 
 (defn train! []
-  (data/verify-readable! :dict :dm-dict :tlm :dpb)
+  (data/verify-readable! :dict :dm-dict :tlm :dpb :twt-c)
 
   (let [tmp1_path (str io/OUT_PATH ".tmp1")
         tmp2_path (str io/OUT_PATH ".tmp2")

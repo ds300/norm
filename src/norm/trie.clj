@@ -21,7 +21,7 @@
   (.freq t s))
 
 (defn combine
-  "Take some tries and merge them, frequencies are combined.
+  "Take some tries and merges them, frequencies are combined.
    Where identical entries both have data objects, the rightmost is used."
   [& ts]
   (when (some identity ts)

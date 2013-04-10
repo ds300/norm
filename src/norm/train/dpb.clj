@@ -28,30 +28,26 @@
 
 (defn extract-untyped-deps! [^norm.jvm.Trie DICT sentence-counter* dep-counter* store-fn* sentence]
   (sentence-counter* 1)
-  (let [tkns  (tokens sentence)
-        deps  (dependencies sentence)
-        getd  (fn [{[{[a] :content} {[b] :content}] :content {type :type} :attrs}]
-                ; root dependencies involve a point, and a point is not a word,
-                ; so ignore root dependencies
-                (when (not= type "root") 
-                  (try
-                    (let [i (Integer. (.trim a)) j (Integer. (.trim b)) offset (- i j) ]
-                      (when (and 
-                               ; ensure, just in case, that i and j are >= 0
-                              (every? pos? [i j])
-                              ; also we only care about tokens up to three
-                              ; places removed from the target word
-                              (<= (Math/abs offset) 3))
-                        ; get the words and check they're in the dictionary
-                        (let [w1 (tkns (dec i)) w2 (tkns (dec j))]
-                          (when (and 
-                                  (.contains DICT ^String w1)
-                                  (not (.contains DICT ^String w2)))
-                            ; replace words with unique IDs
-                            (store-fn* [w1 offset])
-                            (dep-counter* 1)))))
-                    (catch NumberFormatException e (do nil)))))]
-    (dorun (map getd deps))))
+  (let [tkns (tokens sentence)]
+    (doseq [{[{[a] :content} {[b] :content}] :content {type :type} :attrs} (dependencies sentence)]
+      (when (not= type "root") 
+        (try
+          (let [i (Integer. (.trim a)) j (Integer. (.trim b)) offset (- i j) ]
+            (when (and 
+                     ; ensure, just in case, that i and j are >= 0
+                    (every? pos? [i j])
+                    ; also we only care about tokens up to three
+                    ; places removed from the target word
+                    (<= (Math/abs offset) 3))
+              ; get the words and check they're in the dictionary
+              (let [w1 (tkns (dec i)) w2 (tkns (dec j))]
+                (when (and 
+                        (.contains DICT ^String w1)
+                        (not (.contains DICT ^String w2)))
+                  ; replace words with unique IDs
+                  (store-fn* [w1 offset])
+                  (dep-counter* 1)))))
+          (catch NumberFormatException e (do nil)))))))
 
 (defn filename-filter [^java.io.File file]
   (.. file getName (startsWith "nyt")))
@@ -66,6 +62,19 @@
   (doseq [document (documents f)]
     (doseq [sentence (sentences document)]
       (sentence-handler! sentence))))
+
+(defn dp [v n]
+  (let [x (Math/pow 10 n)]
+    (/ (int (* v x)) x)))
+
+(defn used-memory []
+  (dp
+    (/
+      (double
+        (- (.totalMemory (Runtime/getRuntime))
+           (.freeMemory (Runtime/getRuntime))))
+      (* 1024 1024 1024))
+    3))
 
 (defn train! []
   (data/verify-readable! :dict :nyt)
@@ -88,7 +97,7 @@
           handle-file!_     (partial handle-file! extract-deps!_)]
       
       (println "Extracting dependencies from up to" n "sentences in nyt corpus...")
-      (progress/monitor [#(str "\t" (sentence-counter*) " sentences processed") 1000]
+      (progress/monitor [#(str "\t" (sentence-counter*) " sentences processed. Using " (used-memory)) 2000]
         (dorun
           (utils/pmapall handle-file!_ files)))
 
