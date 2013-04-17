@@ -142,7 +142,7 @@
   {"raw" (fn [tweet]
            (str (join " " (tweet "norm_tokens")) "\n"))
    "tkn" (fn [tweet]
-           (str (join "\n" (tweet "norm_tokens")) "\n"))
+           (str (join "\n" (tweet "norm_tokens")) "\n\n"))
    "json" (fn [tweet]
             (str (json/write-str tweet) ",\n"))
   }

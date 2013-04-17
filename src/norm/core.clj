@@ -16,8 +16,6 @@
             [norm.train.tlm])
   (:gen-class))
 
-(def ARGS (atom nil))
-
 (defn print-help []
   (println
 "USAGE

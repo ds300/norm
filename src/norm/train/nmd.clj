@@ -196,8 +196,8 @@
                             right_result (.right measure iv_context)
                             shared_result (.shared measure oov_context iv_context)
                             combined (.combine measure shared_result left_result right_result)]
-                        [iv_word combined]))
-        [top_candidate _] (first (sort-by second candidates))]
+                        [combined iv_word]))
+        [_ top_candidate] (last (sort candidates))]
     (when top_candidate
       [oov_word top_candidate])))
 
