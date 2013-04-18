@@ -9,39 +9,55 @@
               ^{:static true}[getSimpleNormaliser [] norm.jvm.Normaliser]
               ^{:static true}[getDuplexNormaliser [] norm.jvm.Normaliser]]))
 
-(defn form-exemplars [dict candidate tkns i]
+(defn form-exemplars
+  "makes a bunch of candidate exemplars"
+  [dict candidate tkns i]
   (filter identity
     (for [[off gov] (words/indexed-context tkns 3 i)]
       (when (.contains dict gov)
         [gov candidate off]))))
 
-(defn most-frequent [coll]
+(defn most-frequent
+  "returns the most frequent element in coll, when it is definitely
+  the most frequent element. If it is a tie, nil is returned."
+  [coll]
   (case (count coll)
     0 nil
     1 (first coll)
     (let [[[c1 f1] [c2 f2] & others] (sort-by (comp - second) (frequencies coll))]
-      (.flush *out*)
       (when (or (not f2) (> f1 f2)) c1))))
 
-(defn predict [lksm exemplars]
+(defn predict
+  "Takes some exemplars and gets the most frequent prediction from lksm"
+  [lksm exemplars]
   (or (most-frequent (map lksm exemplars)) "neg"))
 
-(defn ill-formed? [dict lksm td cs tkns i]
+(defn ill-formed?
+  "decides whether (tkns i) is ill-formed or not, in the context of
+  its confusion set cs, using lksm."
+  [dict lksm td cs tkns i]
   (let [exemplars_list (for [w cs]
                          (form-exemplars dict w tkns i))]
     (utils/at-least td #(= "pos" %) (map #(predict lksm %) exemplars_list))))
 
-(defn rank-by [f cs original]
+(defn rank-by
+  "ranks cs by (partial f original)"
+  [f cs original]
   (->> cs
     (group-by (partial f original))
     sort
     (map last)
     (map vector (range))))
 
-(defn higher-is-better [f]
+(defn higher-is-better
+  "returns -f. For readability"
+  [f]
   (comp - f))
 
-(defn choose-candidate [cs orig]
+(defn choose-candidate
+  "given the original word and its confusion set, chooses a
+  candidate to replace it."
+  [cs orig]
   ;; use only word similarity
   (let [csmap (atom (zipmap cs (repeat 0)))
         update-rank (fn [f]

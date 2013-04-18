@@ -1,10 +1,19 @@
 package norm.jvm;
 import clojure.lang.PersistentHashMap;
 
+/*
+ * This class gets unique ids for int arrays in thread-safe goodness.
+ */
 public class IntVectorIdGetter {
+  // this is gonna store all the ids in a trie-like fashion
   PersistentHashMap m = PersistentHashMap.EMPTY;
+
+  // this is how many unique int arrays have been seen so far.
   private int count = 0;
 
+  /*
+   * This gets an ID if ks has been seen, and returns null if not.
+   */
   public Integer get(final int[] ks) {
     Object node = m;
     for (int i=0;i<ks.length;i++) {
@@ -35,6 +44,10 @@ public class IntVectorIdGetter {
     
   }
 
+  /*
+   * This gets an ID regardless of whether it has been seen or not.
+   * new_elem_callback is called when ks has not been seen.
+   */
   public synchronized int put(final int[] ks, clojure.lang.IFn new_elem_callback) {
     Integer res = get(ks);
     if (null == res) {
@@ -48,6 +61,10 @@ public class IntVectorIdGetter {
       return res;
     }
   }
+
+  /*
+   * This gets an ID regardless of whether it has been seen or not.
+   */
   public synchronized int put(final int[] ks) {
     return put(ks, null);
   }

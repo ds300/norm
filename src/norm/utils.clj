@@ -29,7 +29,9 @@
     (pred x)         (recur (dec n) pred xs)
     :otherwise       (recur n pred xs)))
 
-(defn pmapall [f coll]
+(defn pmapall
+  "like pmap, but eager, and with more efficient core usage."
+  [f coll]
   (let [num_threads (.. Runtime getRuntime availableProcessors)
         remaining   (atom ())
         func        (fn [item]

@@ -118,7 +118,6 @@ use option -h or --help for a full list of options."))
       (command-fn args)
       (fail (str "ERROR: Unrecognised command."))))
 
-
   (shutdown-agents))
 
 

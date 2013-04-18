@@ -18,6 +18,9 @@ import clojure.lang.Seqable;
 import clojure.lang.AFn;
 import clojure.lang.IFn;
 
+/**
+ * An immutable Trie for storing strings and doing cool things with those strings.
+ */
 public class Trie extends AFn implements IPersistentMap, IObj{
   private static final List<String> empty_list = new ArrayList<String>(0);
 
@@ -628,16 +631,6 @@ public class Trie extends AFn implements IPersistentMap, IObj{
     Trie end = endNode(prefix);
     return end == null ? 0 : end._tfreq;
   }
-
-  // public Long freq (String prefix, Object notFound) {
-  //   Trie end = endNode(prefix);
-  //   return end == null ? notFound : end._freq;
-  // }
-
-  // public Long tfreq (String prefix, Object notFound) {
-  //   Trie end = endNode(prefix);
-  //   return end == null ? notFound : end._tfreq;
-  // }
 
   @Override
   public Object valAt (Object key) {

@@ -1,6 +1,11 @@
 package norm.jvm;
 
+/**
+ * These functions take two strings and return some measure of similarity.
+ * It should be obvious what they do given their length.
+ */
 public class StringComparators {
+
   public static int commonPrefixLength (final String a, final String b) {
     int l = 0;
     while (l < Math.min(a.length(), b.length()) && a.charAt(l) == b.charAt(l)) l++;
