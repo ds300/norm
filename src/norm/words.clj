@@ -1,26 +1,39 @@
 (ns norm.words
+  "functions that operate on words, or create them."
   (:import [norm.jvm StringComparators])
   (:require [norm.trie :as trie]
             [norm.utils :as utils]
             [clojure.string :as str]))
 
-(defn levenshtein [^String a ^String b]
+(defn levenshtein
+  "Calculates the levenshtein distance between a and b"
+  [^String a ^String b]
   (StringComparators/levenshteinDistance a b))
 
-(defn common-prefix-length [^String a ^String b]
+(defn common-prefix-length
+  "Calculates the length of the shared prefix of a and b"
+  [^String a ^String b]
   (StringComparators/commonPrefixLength a b))
 
-(defn common-suffix-length [^String a ^String b]
+(defn common-suffix-length
+  "Calculates the length of the shared suffix of a and b"
+  [^String a ^String b]
   (StringComparators/commonSuffixLength a b))
 
-(defn longest-common-subsequence [^String a ^String b]
+(defn longest-common-subsequence
+  "Calculates the legnth of the longest-common-subsequence of a and b"
+  [^String a ^String b]
   (StringComparators/longestCommonSubsequence a b))
 
 (let [kernel (cc.mallet.types.StringKernel.)]
-  (defn ssk [^String a ^String b]
+  (defn ssk
+    "String subsequence kernel between a and b."
+    [^String a ^String b]
     (.K kernel a b)))
 
-(defn remove-repetition [s]
+(defn remove-repetition
+  "reduces repetition a lot."
+  [s]
   (-> s
     (str/replace #"(.)\1\1\1+" "$1$1$1")
     (str/replace #"(..)\1\1+" "$1$1")))

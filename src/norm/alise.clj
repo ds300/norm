@@ -1,4 +1,5 @@
 (ns norm.alise
+  "This is where all the normalisation bits happen."
   (:require [norm.config :as config]
             [norm.data :as data]
             [norm.utils :as utils]
@@ -75,16 +76,22 @@
       first
       first)))
 
-(defn simple-normalise [dict nmd tkns]
+(defn simple-normalise
+  "normalises a list of tokens using the simple strategy"
+  [dict nmd tkns]
   (mapv #(if (.contains dict %) % (nmd % %)) tkns))
 
-(defn normalise-token [dict lksm get-cs td tkns i]
+(defn normalise-token
+  "complex-normalises a the token in tkns at index i"
+  [dict lksm get-cs td tkns i]
   (let [cs (get-cs tkns i)]
     (if (ill-formed? dict lksm td cs tkns i)
       (choose-candidate cs (nth tkns i))
       (nth tkns i))))
 
-(defn complex-normalise [dict lksm get-cs td tkns]
+(defn complex-normalise
+  "normalises a list of tokens using the complex strategy"
+  [dict lksm get-cs td tkns]
   (let [tkns (vec tkns)]
     (vec
       (for [[i word] (map vector (range) tkns)]
@@ -92,14 +99,18 @@
           word
           (normalise-token dict lksm get-cs td tkns i))))))
 
-(defn get-cs-getter [dict dm-dict tlm lex-dist phon-dist percent-cutoff]
+(defn get-cs-getter
+  "returns a fn that gets a confusion set when given tkns and i"
+  [dict dm-dict tlm lex-dist phon-dist percent-cutoff]
   (let [get-raw-cs (partial words/raw-confusion-set dict dm-dict lex-dist phon-dist)]
     (fn [tkns i]
       (utils/take-percent percent-cutoff
         (words/lm-ranked-confusion-set tlm get-raw-cs tkns i)))))
 
 
-(defn get-complex-normaliser-fn []
+(defn get-complex-normaliser-fn
+  "returns a function which normalises token lists using the complex strategy"
+  []
   (data/load-and-bind [:dict :lksm :tlm :dm-dict]
     (partial complex-normalise
       data/DICT
@@ -113,10 +124,14 @@
         (config/opt :confusion-sets :post-rank-cutoff))
       1)))
 
-(defn get-simple-normaliser-fn []
+(defn get-simple-normaliser-fn
+  "returns a function which normalises token lists using the simple strategy"
+  []
   (partial simple-normalise (data/load- :dict) (data/load- :nmd)))
 
-(defn get-duplex-normaliser-fn []
+(defn get-duplex-normaliser-fn
+  "returns a function which normalises token lists using the duplex strategy"
+  []
   (comp (get-complex-normaliser-fn) (get-simple-normaliser-fn)))
 
 (defn ^{:static true} -getComplexNormaliser []
