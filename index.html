@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>norm - A Lexical Normalisation System for Tweets</title>
+
+		<meta name="description" content="norm - A Lexical Normalisation System for Tweets">
+		<meta name="author" content="David Sheldrick">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="css/reveal.min.css">
+		<link rel="stylesheet" href="css/theme/default.css" id="theme">
+
+		<!-- For syntax highlighting -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- If the query includes 'print-pdf', use the PDF print sheet -->
+		<script>
+			document.write( '<link rel="stylesheet" href="css/print/' + ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">' );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+			<div class="slides">
+
+				<section>
+					<h1>Greetings</h1>
+				</section>
+
+				<section>
+					<h2>Overview</h2>
+					<ol>
+						<li>What?</li>
+						<li>Why?</li>
+						<li>How?</li>
+						<li>And?</li>
+					</ol>
+				</section>
+
+				<section>
+					<h2>what?</h2>
+					<ul>
+						<li><code>norm</code> - Lexical Normalisation for Tweets</li>
+						<li>Implementation of work described by Han, Cook and Baldwin from University of Melbourne.</li>
+					</ul>
+				</section>
+
+				<section>
+					<h2>lexical normalisation</h2>
+					<ul>
+						<li>We have some notion of Vocabulary</li>
+						<li>Many Out-Of-Vocabulary (OOV) words are just variants of In-Vocabulary (IV) words</li>
+						<li>LN is attempting to replace OOV terms by their canonical IV term where possible</li>
+					</ul>
+				</section>
+
+				<section>
+					<section>
+						<h2>Common Lexical Variant Types</h2>
+					</section>
+					<section>
+						<h3>Emphatic Repetition</h3>
+						<center>
+							<table>
+								<tr>
+									<td>coooool</td>
+									<td>&rarr;</td>
+									<td>cool</td>
+								</tr>
+								<tr>
+									<td>hahahahaha</td>
+									<td>&rarr;</td>
+									<td>haha</td>
+								</tr>
+								<tr>
+									<td>uh.......</td>
+									<td>&rarr;</td>
+									<td>uh...</td>
+								</tr>
+							</table>
+						</center>
+					</section>
+					<section>
+						<h3>Bad Spelling</h3>
+						<center>
+							<table>
+								<tr>
+									<td>sentance</td>
+									<td>&rarr;</td>
+									<td>sentence</td>
+								</tr>
+								<tr>
+									<td>tounge</td>
+									<td>&rarr;</td>
+									<td>tongue</td>
+								</tr>
+								<tr>
+									<td>soupreem</td>
+									<td>&rarr;</td>
+									<td>supreme</td>
+								</tr>
+							</table>
+						</center>
+					</section>
+					<section>
+						<h3>Typos</h3>
+						<center>
+							<table>
+								<tr>
+									<td>welcone</td>
+									<td>&rarr;</td>
+									<td>welcome</td>
+								</tr>
+								<tr>
+									<td>hellp</td>
+									<td>&rarr;</td>
+									<td>help, hello</td>
+								</tr>
+								<tr>
+									<td>bfeore</td>
+									<td>&rarr;</td>
+									<td>before</td>
+								</tr>
+							</table>
+						</center>
+					</section>
+					<section>
+						<h3>Phonetic Substitution</h3>
+						<center>
+							<table>
+								<tr>
+									<td>2nite</td>
+									<td>&rarr;</td>
+									<td>tonight</td>
+								</tr>
+								<tr>
+									<td>tha</td>
+									<td>&rarr;</td>
+									<td>the</td>
+								</tr>
+								<tr>
+									<td>ez</td>
+									<td>&rarr;</td>
+									<td>easy</td>
+								</tr>
+							</table>
+						</center>
+					</section>
+					<section>
+						<h3>Abbreviation</h3>
+						<center>
+							<table>
+								<tr>
+									<td>tmrw</td>
+									<td>&rarr;</td>
+									<td>tomorrow</td>
+								</tr>
+								<tr>
+									<td>def</td>
+									<td>&rarr;</td>
+									<td>definitely</td>
+								</tr>
+								<tr>
+									<td>goin</td>
+									<td>&rarr;</td>
+									<td>going</td>
+								</tr>
+							</table>
+						</center>
+					</section>
+					<section>
+						<h3>Slang</h3>
+						<center>
+							<table>
+								<tr>
+									<td>chillax</td>
+									<td>&rarr;</td>
+									<td>relax</td>
+								</tr>
+								<tr>
+									<td>convo</td>
+									<td>&rarr;</td>
+									<td>conversation</td>
+								</tr>
+								<tr>
+									<td>bruv</td>
+									<td>&rarr;</td>
+									<td>brother, mate, chum</td>
+								</tr>
+							</table>
+						</center>
+					</section>
+					<section>
+						<h2>out of scope</h2>
+					</section>
+					<section>
+						<h3>Malapropisms</h3>
+						<center>
+							<table>
+								<tr>
+									<td>don</td>
+									<td>&rarr;</td>
+									<td>don't</td>
+								</tr>
+								<tr>
+									<td>of</td>
+									<td>&rarr;</td>
+									<td>off</td>
+								</tr>
+								<tr>
+									<td>your</td>
+									<td>&rarr;</td>
+									<td>you're</td>
+								</tr>
+							</table>
+						</center>
+					</section>
+					<section>
+						<h3>acronyms/multi-word abbrv.</h3>
+						<center>
+							<table>
+								<tr>
+									<td>brb</td>
+									<td>&rarr;</td>
+									<td>be right back</td>
+								</tr>
+								<tr>
+									<td>wanna</td>
+									<td>&rarr;</td>
+									<td>want to</td>
+								</tr>
+								<tr>
+									<td>yolo</td>
+									<td>&rarr;</td>
+									<td>you only live once</td>
+								</tr>
+							</table>
+						</center>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2>why LN?</h2>
+						<p>Simple: Reduce dimensionality/noise for downstream processing</p>
+						<p>e.g. how similar are the following two sentences pre- and post-normalisation?</p>
+						<blockquote>hey! when are you going to town?</blockquote>
+						<blockquote>heyyy! wen r u goin 2 town?</blockquote>
+					</section>
+					<section>
+						<h3>downstream processing?</h3>
+						<p>Analysis of natural language text is a hot research topic, and lots of people are making money.</p>
+						<ul>
+							<li>Document Classification</li>
+							<li>Event Detection</li>
+							<li>Event Prediction</li>
+						</ul>
+						<p>Lexical normalisation might enhance performance of these tasks for Tweets.</p>
+					</section>
+				</section>
+
+				<section>
+					<h2>how?</h2>
+					Prior methods costly to train and maintain. I implement two unsupervised techniques...
+				</section>
+
+				<section>
+					<section>
+						<h2>Technique 1. Building a normalisation dictionary</h2>
+						<p>Paper: Han, Cook, and Baldwin (2012) <q>Automatically constructing a normalisation dictionary for microblogs</q></p>
+					</section>
+					<section>
+						<h2>A Dictionary?</h2>
+						<p>We want to generate a list of unambiguous mappings from OOV terms to IV terms, e.g.</p>
+						<table>
+							<tr>
+								<td>tmrw</td>
+								<td>&rarr;</td>
+								<td>tomorrow</td>
+							</tr>
+							<tr>
+								<td>bfeore</td>
+								<td>&rarr;</td>
+								<td>before</td>
+							</tr>
+							<tr>
+								<td>goin</td>
+								<td>&rarr;</td>
+								<td>going</td>
+							</tr>
+						</table>
+						... and many more.
+					</section>
+					<section>
+						<h4>Recipe</h4>
+						<h3>Ingredients</h3>
+						<ul>
+							<li>A big (~100 million) corpus of Tweets</li>
+							<li>A definitive set of IV words</li>
+						</ul>
+					</section>
+					<section>
+						<h4>Recipe</h4>
+						<h3>Step 1</h3>
+						<ol type="a">
+							<li>Count all words in corpus</li>
+							<li>Separate words into OOV and IV</li>
+							<li>Discard OOV words with freq &lt; 10 and length &lt; 4</li>
+						</ol>
+					</section>
+					<section>
+						<h4>Recipe</h4>
+						<h3>Step 2</h3>
+						<ol type="a">
+							<li>Generate confusion sets for all OOV words</li>
+							<li>Compile a set of <em>context-relevant</em> words, i.e. all OOV words + all IV words from their confusion sets</li>
+						</ol>
+						<hr />
+						Confusion set example: <q>sentance</q> &rarr; <q>sentence, sent, centaur, sentinel, etc...</q>
+					</section>
+					<section>
+						<h4>Recipe</h4>
+						<h3>Step 3</h3>
+						<ol type="a">
+							<li>Extract and count contextual features for all context-relevant words.</li>
+						</ol>
+						<hr />
+						Contextual features are bigrams from up to three words either side of the target word. e.g. <q>time</q> in the sentence:
+						<blockquote>Once upon a time in Westeros...</blockquote>
+						would have contextual features:
+						<pre>
+-2:Once upon
+-1:upon a
++1:in Westeros
++2:Westeros ...</pre>
+					</section>
+					<section>
+						<h4>Recipe</h4>
+						<h3>Step 4</h3>
+						<ol type="a">
+							<li>Calculate distributional similarity between all OOV words and their confusion candidates</li>
+							<li>Form a pair using most distributionally-similar candidate.</li>
+						</ol>
+						<hr />
+						<table>
+							<tr><td></td>
+								<td><strong>sent</strong></td>
+								<td><strong>sentinel</strong></td>
+								<td style="border: 0.1em dotted yellow; border-bottom:none;"><strong>sentence</strong></td>
+								<td><strong>centaur</strong></td>
+								<td>...</td>
+							</tr>
+							<tr><td><strong>sentance</strong></td>
+								<td>0.1</td>
+								<td>0.06</td>
+								<td style="border: 0.1em dotted yellow; border-top:none;">0.8</td>
+								<td>0.004</td>
+								<td>...</td>
+							</tr>
+						</table>
+					</section>
+					<section>
+						<h4>Recipe</h4>
+						<h3>Step 5</h3>
+						<ol type="a">
+							<li>Rank all pairs by string similarity</li>
+							<li>Choose top 40,000 for inclusion</li>
+						</ol>
+						<hr />
+						<table>
+							<tr>
+								<td>tmrw</td>
+								<td>&rarr;</td>
+								<td>tomorrow</td>
+								<td></td>
+								<td>1.</td>
+								<td>goin</td>
+								<td>&rarr;</td>
+								<td>going</td>
+							</tr>
+							<tr>
+								<td>bfeore</td>
+								<td>&rarr;</td>
+								<td>before</td>
+								<td>&nbsp;becomes&nbsp;&nbsp;</td>
+								<td>2.</td>
+								<td>bfeore</td>
+								<td>&rarr;</td>
+								<td>before</td>
+							</tr>
+							<tr>
+								<td>goin</td>
+								<td>&rarr;</td>
+								<td>going</td>
+								<td></td>
+								<td>3.</td>
+								<td>tmrw</td>
+								<td>&rarr;</td>
+								<td>tomorrow</td>
+							</tr>
+							<tr>
+								<td>...</td>
+								<td></td>
+								<td></td>
+								<td></td>
+								<td>4.</td>
+								<td>...</td>
+								<td></td>
+								<td></td>
+							</tr>
+						</table>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2>Technique 2. on-line normalisation</h2>
+						<p>Paper: Han and Baldwin (2011) <q>Lexical Normalisation of Short Text Messages: Makn Sens a #twitter</q></p>
+					</section>
+					<section>
+						<h3>On-line?</h3>
+						<p>Allows selecting normalisation candidates based on local context. e.g. what should <q>gooood</q> normalise to in the following sentences?</p>
+						<blockquote>Iron Man 4 confirmed! Thank gooood! :)</blockquote>
+						<blockquote>Mmmm. That Big Mac was gooood.</blockquote>
+					</section>
+					<section>
+						<h3>On-line?</h3>
+						<p>Allows deciding whether or not to normalise based on local context. e.g. what should <q>4</q> normalise to in the following sentences?</p>
+						<blockquote>Just ate 4 Big Macs.</blockquote>
+						<blockquote>Just got a Lexus 4 my birthday!</blockquote>
+					</section>
+					<section>
+						<h3>Step 1.</h3>
+						<ol type="a">
+							<li>Generate a confusion set for the observed OOV word</li>
+							<li>Rank candidates using trigram language model</li>
+						</ol>
+					</section>
+					<section>
+						<h3>Step 2.</h3>
+						<ol type="a">
+							<li>Decide whether OOV word is ill-formed relative to its confusion set</li>
+							<li>If so, move to Step 3. Otherwise don't normalise it.</li>
+						</ol>
+						<hr />
+						<p>Convoluted process, not very effective.</p>
+					</section>
+					<section>
+						<h3>Step 3.</h3>
+						<ol type="a">
+							<li>Choose normalisation candidate based on various string similarity measures.</li>
+							<li>Replace OOV word in original text.</li>
+						</ol>
+						<hr />
+						<p>Final choice ignores context. Han and Baldwin showed that context-based decisions at this stage perform worse.</p>
+					</section>
+				</section>
+
+				<section>
+					<h2>Implementation</h2>
+					<h3>Clojure!</h3>
+					<ul>
+						<li>Java interop!</li>
+						<li>Lockless in-process concurrency!</li>
+						<li>Fast!</li>
+					</ul>
+				</section>
+
+				<section>
+					<section>
+						<h2>Confusion Sets</h2>
+						<p>Definition: <q>All IV words within lexical edit distance of 2 and phonemic edit distance of 1</q></p>
+					</section>
+					<section>
+						<h3>Lexical Edit Distance</h3>
+						<ul>
+							<li>(<q>hello</q>, <q>hell</q>) &rarr; 1</li>
+							<li>(<q>hit</q>, <q>her</q>) &rarr; 2</li>
+							<li>(<q>brian</q>, <q>jesus</q>) &rarr; 5</li>
+						</ul>
+					</section>
+					<section>
+						<h3>Double Metaphone</h3>
+						<ul>
+							<li>cheese &rarr; XS</li>
+							<li>chase &rarr; XS</li>
+							<li>shop &rarr; XP</li>
+						</ul>
+						<br />
+						<br />
+						<h3>Phonemic Edit Distance</h3>
+						<ul>
+							<li>(<q>cheese</q>, <q>chase</q>) &rarr; 0</li>
+							<li>(<q>cheese</q>, <q>shop</q>) &rarr; 1</li>
+						</ul>
+					</section>
+					<section>
+						<h3>How?</h3>
+						<p>Han and Baldwin don't say.</p>
+						<p>I use the Trie data structure.</p>
+					</section>
+					<section>
+						<h3>Tries</h3>
+						<img src="trie.svg" style="background: white;"/>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2>And?</h2>
+						Seems to have little effect on document classification tasks.
+						<br />
+						charts
+						&darr;
+					</section>
+					<section>
+						<img src="barroso.svg" />
+					</section>
+					<section>
+						<img src="eu.svg" />
+					</section>
+					<section>
+						<img src="europe.svg" />
+					</section>
+					<section>
+						<img src="xfactor.svg" />
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2>can we do better?</h2>
+						<p>I think so!</p>
+					</section>
+					<section>
+						<h3>Rethinking Confusion Set Generation</h3>
+						Phonemic edit distance is too crude. 
+						<ul>
+							<li>CS for <q>shud</q> contains <q>voodoo, fattier, charity, wretched...</q></li>
+							<li>CS sizes average in 1000s</li>
+						</ul>
+					</section>
+					<section>
+						<h3>solution?</h3>
+						Integrate phonemic information into lexical edit distance algorithm.
+						<ul>
+							<li>By default, a penalty of 1 is incurred for each substituion, deletion, or addition.</li>
+							<li>Is replacing 's' with 'z' as damaging as replacing 's' with 'k'? I argue not!</li>
+							<li>We can calculate penalties using distributional similarity measures, where contextual features are taken from IPA encodings.</li>
+						</ul>
+
+					</section>
+					<section>
+						<img src="ipa.svg" style="background: white;"/>
+					</section>
+					<section>
+						<h3>Rethinking Confusion Set Generation</h3>
+						<ul>
+							<li>Current approach is terrible for short words.</li>
+							<li>Unable to to find canonical forms of <q>fav, defo, convo, tmrw, </q>etc.</li>
+							<li>Using tries and unigram frequencies, we can efficiently extract the <q>n</q> most likely words with a given prefix. This appears to give excellent results for very low <q>n</q>.</li>
+							<li>We can also extract the <q>n</q> most likely words containing a given substring. This also appears to give excellent results for low <q>n</q>.</li>
+						</ul>
+					</section>
+				</section>
+
+
+				<section>
+					<h2>questions?</h2>
+				</section>
+
+				<section>
+					<h1>THE END</h1>
+				</section>
+
+			</div>
+
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.min.js"></script>
+
+		<script>
+
+			// Full list of configuration options available here:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+				transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/fade/none
+
+				// Optional libraries used to extend on reveal.js
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+					{ src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+					// { src: 'plugin/search/search.js', async: true, condition: function() { return !!document.body.classList; } }
+					// { src: 'plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>
